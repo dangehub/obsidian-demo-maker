@@ -65,8 +65,9 @@ export class FlowPlayer {
 	private pollHandle: number | null = null;
 	private clickHandler: ((evt: MouseEvent) => void) | null = null;
 	private keyHandler: ((evt: KeyboardEvent) => void) | null = null;
-	private readonly maxResolveAttempts = 10;
+	private readonly maxResolveAttempts = 20;
 	private readonly resolveInterval = 300; // ms
+	private readonly clickAdvanceDelayMs = 200;
 
 	constructor(plugin: Plugin) {
 		this.plugin = plugin;
@@ -123,8 +124,14 @@ export class FlowPlayer {
 
 	private advanceFromClick() {
 		this.currentTarget = null;
-		this.index += 1;
-		this.nextStep();
+		if (this.timeoutHandle) {
+			window.clearTimeout(this.timeoutHandle);
+			this.timeoutHandle = null;
+		}
+		this.timeoutHandle = window.setTimeout(() => {
+			this.index += 1;
+			this.nextStep();
+		}, this.clickAdvanceDelayMs);
 	}
 
 	private nextStep() {
