@@ -1,11 +1,9 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
+	"id": "obsidian-demo-maker",
+	"name": "Demo Maker",
+	"version": "0.1.2",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "录制并回放 Obsidian 引导流程的最小原型。",
+	"author": "曲淡歌",
 	"isDesktopOnly": false
 }
