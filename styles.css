@@ -40,19 +40,22 @@
 	pointer-events: none;
 }
 
-.demo-maker-overlay::before {
-	content: "";
+.demo-maker-overlay-shade {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.35);
+	background: rgba(0, 0, 0, 0.45);
+	pointer-events: none;
 }
 
 .demo-maker-overlay-highlight {
 	position: absolute;
 	border: 2px solid #ffd166;
-	box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.35);
+	box-shadow:
+		0 0 0 4px rgba(255, 209, 102, 0.35),
+		0 0 0 9999px rgba(0, 0, 0, 0.45);
 	border-radius: 10px;
 	pointer-events: none;
+	background: transparent;
 }
 
 .demo-maker-overlay-tooltip {

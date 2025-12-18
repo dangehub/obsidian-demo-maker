@@ -4,6 +4,7 @@ import { FlowDefinition, FlowStep } from "./types";
 
 class PlayerOverlay {
 	private container: HTMLDivElement;
+	private shade: HTMLDivElement;
 	private highlight: HTMLDivElement;
 	private tooltip: HTMLDivElement;
 	private exitButton: HTMLButtonElement;
@@ -11,6 +12,9 @@ class PlayerOverlay {
 	constructor(onExit: () => void) {
 		this.container = document.createElement("div");
 		this.container.className = "demo-maker-overlay";
+
+		this.shade = document.createElement("div");
+		this.shade.className = "demo-maker-overlay-shade";
 
 		this.highlight = document.createElement("div");
 		this.highlight.className = "demo-maker-overlay-highlight";
@@ -23,7 +27,7 @@ class PlayerOverlay {
 		this.exitButton.textContent = "退出引导";
 		this.exitButton.onclick = onExit;
 
-		this.container.append(this.highlight, this.tooltip, this.exitButton);
+		this.container.append(this.shade, this.highlight, this.tooltip, this.exitButton);
 		document.body.appendChild(this.container);
 	}
 
@@ -33,6 +37,7 @@ class PlayerOverlay {
 	}
 
 	showStep(target: HTMLElement, message: string) {
+		this.shade.style.display = "none";
 		const rect = target.getBoundingClientRect();
 		this.highlight.style.display = "block";
 		this.highlight.style.top = `${rect.top + window.scrollY - 4}px`;
@@ -44,6 +49,7 @@ class PlayerOverlay {
 	}
 
 	showWait(message: string) {
+		this.shade.style.display = "block";
 		this.highlight.style.display = "none";
 		this.tooltip.textContent = message;
 		this.tooltip.style.display = "block";
