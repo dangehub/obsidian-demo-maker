@@ -12,11 +12,12 @@ export default class DemoMakerPlugin extends Plugin {
 	private data: DemoMakerData = DEFAULT_DATA;
 	private recorder: FlowRecorder | null = null;
 	private player: FlowPlayer | null = null;
+	private editMode = false;
 
 	async onload() {
 		await this.loadState();
 		this.recorder = new FlowRecorder(this, (flow) => this.saveFlow(flow));
-		this.player = new FlowPlayer(this);
+		this.player = new FlowPlayer(this, (flow) => this.saveEditedFlow(flow));
 
 		this.addCommand({
 			id: "demo-maker-start-recording",
@@ -34,6 +35,12 @@ export default class DemoMakerPlugin extends Plugin {
 			id: "demo-maker-debug-last",
 			name: "调试最近录制的定位",
 			callback: () => this.debugLastFlowSelectors(),
+		});
+
+		this.addCommand({
+			id: "demo-maker-toggle-edit-mode",
+			name: "切换回放编辑模式（添加提示/箭头）",
+			callback: () => this.toggleEditMode(),
 		});
 
 		new Notice("Demo Maker 插件已加载（最小原型）。");
@@ -81,6 +88,7 @@ export default class DemoMakerPlugin extends Plugin {
 		if (this.recorder?.isRecording()) {
 			this.recorder.cancelRecording();
 		}
+		this.player.setEditMode(this.editMode);
 		this.player.start(flow);
 	}
 
@@ -113,5 +121,18 @@ export default class DemoMakerPlugin extends Plugin {
 	public startFlow(flow: FlowDefinition) {
 		if (!this.player) return;
 		this.player.start(flow);
+	}
+
+	private async saveEditedFlow(flow: FlowDefinition) {
+		const existing = this.data.flows.filter((f) => f.id !== flow.id);
+		this.data.flows = [flow, ...existing].slice(0, 5);
+		this.data.lastRecordedId = flow.id;
+		await this.saveState();
+	}
+
+	private toggleEditMode() {
+		this.editMode = !this.editMode;
+		this.player?.setEditMode(this.editMode);
+		new Notice(this.editMode ? "回放编辑模式已开启（可添加提示/箭头）" : "回放编辑模式已关闭");
 	}
 }

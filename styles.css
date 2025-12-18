@@ -58,6 +58,127 @@
 	background: transparent;
 }
 
+.demo-maker-overlay-highlight.no-dim {
+	box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.35);
+}
+
+.demo-maker-edit-toolbar {
+	position: fixed;
+	top: 12px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 10001;
+	display: flex;
+	gap: 8px;
+	background: rgba(15, 23, 42, 0.9);
+	color: #e2e8f0;
+	padding: 8px 12px;
+	border-radius: 12px;
+	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+	align-items: center;
+	pointer-events: auto;
+}
+
+.demo-maker-edit-toolbar button {
+	border: 1px solid var(--background-modifier-border, #444);
+	background: var(--interactive-accent, #7c5dfa);
+	color: #fff;
+	border-radius: 8px;
+	padding: 4px 8px;
+	cursor: pointer;
+}
+
+.demo-maker-overlay-hint {
+	position: absolute;
+	max-width: 280px;
+	background: #0f172a;
+	color: #e2e8f0;
+	padding: 8px 10px;
+	border-radius: 10px;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+	font-size: 13px;
+	line-height: 1.4;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+}
+
+.demo-maker-overlay-hint::after {
+	content: "";
+	position: absolute;
+	width: 0;
+	height: 0;
+	border-style: solid;
+}
+
+.demo-maker-overlay-hint[data-position="top"]::after {
+	bottom: -8px;
+	left: 50%;
+	transform: translateX(-50%);
+	border-width: 8px 8px 0 8px;
+	border-color: #0f172a transparent transparent transparent;
+}
+
+.demo-maker-overlay-hint[data-position="bottom"]::after {
+	top: -8px;
+	left: 50%;
+	transform: translateX(-50%);
+	border-width: 0 8px 8px 8px;
+	border-color: transparent transparent #0f172a transparent;
+}
+
+.demo-maker-overlay-hint[data-position="left"]::after {
+	top: 50%;
+	right: -8px;
+	transform: translateY(-50%);
+	border-width: 8px 0 8px 8px;
+	border-color: transparent transparent transparent #0f172a;
+}
+
+.demo-maker-overlay-hint[data-position="right"]::after {
+	top: 50%;
+	left: -8px;
+	transform: translateY(-50%);
+	border-width: 8px 8px 8px 0;
+	border-color: transparent #0f172a transparent transparent;
+}
+
+.demo-maker-overlay-hint[data-arrow="off"]::after {
+	display: none;
+}
+
+.demo-maker-annotation-text {
+	position: absolute;
+	min-width: 80px;
+	max-width: 240px;
+	background: #0f172a;
+	color: #e5e7eb;
+	padding: 8px 10px;
+	border-radius: 8px;
+	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+	font-size: 13px;
+	line-height: 1.4;
+	cursor: move;
+	pointer-events: auto;
+}
+
+.demo-maker-annotation-text[contenteditable="true"] {
+	outline: 1px solid var(--interactive-accent, #7c5dfa);
+}
+
+.demo-maker-annotation-arrow {
+	position: absolute;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.demo-maker-annotation-handle {
+	fill: #7c5dfa;
+	stroke: #fff;
+	stroke-width: 1;
+	cursor: pointer;
+	pointer-events: auto;
+}
+
 .demo-maker-overlay-tooltip {
 	position: fixed;
 	top: 20px;
@@ -84,4 +205,30 @@
 	color: #f8fafc;
 	cursor: pointer;
 	pointer-events: auto;
+}
+
+.demo-maker-overlay-edit {
+	position: fixed;
+	top: 60px;
+	left: 20px;
+	padding: 6px 10px;
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border, #444);
+	background: var(--interactive-accent, #7c5dfa);
+	color: #fff;
+	cursor: pointer;
+	pointer-events: auto;
+}
+
+.demo-maker-hint-modal-buttons {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.demo-maker-hint-modal-buttons button {
+	border: 1px solid var(--background-modifier-border, #444);
+	padding: 6px 10px;
+	border-radius: 8px;
+	cursor: pointer;
 }
