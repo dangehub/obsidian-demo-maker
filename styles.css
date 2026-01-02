@@ -58,15 +58,59 @@
 }
 
 /* ============================================================
+   SVG 绘图层（箭头）
+   ============================================================ */
+
+.demo-maker-svg-layer {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 10021;
+	/* 高于 tooltip (10020) 确保箭头可点击 */
+}
+
+.demo-maker-svg-layer line,
+.demo-maker-svg-layer path {
+	pointer-events: stroke;
+}
+
+.demo-maker-arrow-handle {
+	fill: #3b82f6;
+	stroke: white;
+	stroke-width: 2;
+	cursor: move;
+	pointer-events: auto;
+}
+
+.demo-maker-arrow-handle:hover {
+	fill: #60a5fa;
+	transform-origin: center;
+}
+
+.demo-maker-arrow-delete {
+	pointer-events: auto;
+	cursor: pointer;
+}
+
+.demo-maker-arrow-delete circle {
+	transition: transform 0.15s;
+}
+
+.demo-maker-arrow-delete:hover circle {
+	fill: #dc2626;
+}
+
+/* ============================================================
    提示气泡
    ============================================================ */
 
 .demo-maker-tooltip {
 	position: fixed;
-	/* 核心改变：使用 fixed 坐标系，与 getBoundingClientRect 对齐 */
 	max-width: 320px;
 	min-width: 120px;
-	/* 防御性宽度，防止异步渲染时塌陷 */
 	padding: 12px 16px;
 	border-radius: 12px;
 	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
@@ -76,7 +120,17 @@
 	pointer-events: auto;
 	transition: transform 0.2s ease, box-shadow 0.2s ease;
 	display: none;
-	color: #f1f5f9;
+	color: #e2e8f0 !important;
+	/* 强制浅色文字 */
+	background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+	/* 默认深色背景 */
+}
+
+/* 确保 Markdown 渲染内容继承颜色 */
+.demo-maker-tooltip p,
+.demo-maker-tooltip span,
+.demo-maker-tooltip div {
+	color: inherit !important;
 }
 
 /* 文字气泡主题变量 */
@@ -153,7 +207,121 @@
 	left: -8px;
 	transform: translateY(-50%);
 	border-width: 8px 8px 8px 0;
-	border-color: transparent #1e293b transparent transparent;
+	border-color: transparent var(--tooltip-bg, #1e293b) transparent transparent;
+}
+
+/* center 位置无箭头 */
+.demo-maker-tooltip[data-placement="center"]::after {
+	display: none;
+}
+
+/* ============================================================
+   批注工具栏 (编辑/删除按钮)
+   ============================================================ */
+
+.demo-maker-tooltip-container {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 10019;
+}
+
+.demo-maker-tooltip-container .demo-maker-tooltip {
+	pointer-events: auto;
+}
+
+.demo-maker-tooltip.is-editing {
+	cursor: move;
+	outline: 2px dashed rgba(59, 130, 246, 0.5);
+}
+
+.demo-maker-anno-toolbar {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	display: flex;
+	gap: 4px;
+	opacity: 0.7;
+	transition: opacity 0.2s;
+}
+
+.demo-maker-tooltip:hover .demo-maker-anno-toolbar {
+	opacity: 1;
+}
+
+.demo-maker-anno-btn {
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: rgba(255, 255, 255, 0.2);
+	cursor: pointer;
+	font-size: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.15s;
+}
+
+.demo-maker-anno-btn:hover {
+	background: rgba(255, 255, 255, 0.4);
+	transform: scale(1.1);
+}
+
+.demo-maker-anno-btn-danger:hover {
+	background: #ef4444;
+}
+
+.demo-maker-tooltip-content {
+	position: relative;
+}
+
+/* 内联编辑器 */
+.demo-maker-inline-editor {
+	width: 100%;
+	min-width: 200px;
+	min-height: 60px;
+	padding: 8px;
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	border-radius: 6px;
+	background: rgba(0, 0, 0, 0.3);
+	color: inherit;
+	font-size: 14px;
+	resize: both;
+}
+
+.demo-maker-inline-editor:focus {
+	outline: none;
+	border-color: #3b82f6;
+}
+
+.demo-maker-inline-confirm {
+	position: absolute;
+	bottom: 4px;
+	right: 4px;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: #10b981;
+	color: white;
+	font-size: 16px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	transition: all 0.15s;
+}
+
+.demo-maker-inline-confirm:hover {
+	background: #059669;
+	transform: scale(1.1);
 }
 
 /* ============================================================

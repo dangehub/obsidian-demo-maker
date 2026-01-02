@@ -77,11 +77,21 @@ export class PlayerService {
         this.state = 'playing';
 
         // 创建遮罩层
-        this.overlay = new Overlay({
+        this.overlay = new Overlay(this.plugin, {
             onExit: () => this.stop(),
             onNext: () => this.handleNext(),
             onEdit: () => this.handleEdit(),
-            onAnnotationChange: (anno) => this.editor.handleAnnotationDrag(anno)
+            onAnnotationChange: (anno) => this.editor.handleAnnotationDrag(anno),
+            onDeleteAnnotation: (id) => {
+                if (this.editor.isEditing()) {
+                    (this.editor as any).panel?.deleteAnnotation(id);
+                }
+            },
+            onAnnotationContentChange: (id, content) => {
+                if (this.editor.isEditing()) {
+                    (this.editor as any).panel?.updateAnnotationContent(id, content);
+                }
+            }
         });
         this.overlay.show();
 

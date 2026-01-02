@@ -4,7 +4,7 @@
  */
 
 import { App, Notice } from 'obsidian';
-import { FlowStep, Locator, ArrowAnnotation } from '../core/types';
+import { FlowStep, Locator, ArrowAnnotation, TextAnnotation } from '../core/types';
 import { EditorPanel } from './EditorPanel';
 import { buildLocatorFromElement } from '../recorder/RecorderService';
 
@@ -157,7 +157,7 @@ export class EditorService {
     /**
      * 处理标注拖拽更新
      */
-    handleAnnotationDrag(anno: ArrowAnnotation): void {
+    handleAnnotationDrag(anno: ArrowAnnotation | TextAnnotation): void {
         if (this.panel) {
             this.panel.updateAnnotation(anno);
         }

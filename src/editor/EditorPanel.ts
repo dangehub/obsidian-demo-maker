@@ -1,15 +1,17 @@
 /**
- * Demo Maker - 编辑面板
- * 播放过程中用于修改步骤的悬浮面板
+ * Demo Maker - 编辑面板 (v2 - 简化版)
+ * 只提供工具栏按钮，批注在 Overlay 上直接编辑
  */
 
-import { FlowStep, ClickStep, InputStep, SelectStep, TextAnnotation, ArrowAnnotation } from '../core/types';
+import { FlowStep, ClickStep, InputStep, SelectStep, TextAnnotation, ArrowAnnotation, Annotation } from '../core/types';
 
 export interface EditorPanelCallbacks {
     onSave: (step: FlowStep) => void;
     onCancel: () => void;
     onRePickElement: () => void;
     onPreview: (step: FlowStep) => void;
+    onAddAnnotation?: (anno: Annotation) => void;
+    onDeleteAnnotation?: (id: string) => void;
 }
 
 /**
@@ -23,12 +25,7 @@ export class EditorPanel {
     // UI 元素
     private typeInfoEl: HTMLDivElement;
     private locatorInfoEl: HTMLDivElement;
-    private hintInput: HTMLTextAreaElement;
-    private placementSelect: HTMLSelectElement;
-    private themeSelect: HTMLSelectElement;
-    private textOffsetInputs: { x: HTMLInputElement, y: HTMLInputElement } | null = null;
     private expectedInput?: HTMLInputElement;
-    private arrowInputs: { fx: HTMLInputElement, fy: HTMLInputElement, tx: HTMLInputElement, ty: HTMLInputElement } | null = null;
 
     // 拖拽状态
     private isDragging = false;
@@ -37,7 +34,6 @@ export class EditorPanel {
     constructor(step: FlowStep, callbacks: EditorPanelCallbacks) {
         this.currentStep = JSON.parse(JSON.stringify(step)); // 深拷贝以便撤销
         this.callbacks = callbacks;
-
         this.initUI();
     }
 
@@ -49,7 +45,7 @@ export class EditorPanel {
         // 标题栏
         const header = document.createElement('div');
         header.className = 'demo-maker-editor-header';
-        header.innerHTML = `<span>✏️ 编辑步骤 </span>`;
+        header.innerHTML = `<span>✏️ 编辑步骤</span>`;
 
         // 内容区域
         const content = document.createElement('div');
@@ -80,91 +76,31 @@ export class EditorPanel {
         locatorGroup.appendChild(this.locatorInfoEl);
         locatorGroup.appendChild(rePickBtn);
 
-        // 提示文字编辑
-        const hintGroup = document.createElement('div');
-        hintGroup.className = 'demo-maker-editor-field';
+        // 批注工具栏
+        const toolbarGroup = document.createElement('div');
+        toolbarGroup.className = 'demo-maker-editor-field';
+        const toolbarLabel = document.createElement('label');
+        toolbarLabel.textContent = '批注工具:';
+        toolbarGroup.appendChild(toolbarLabel);
 
-        const hintLabel = document.createElement('label');
-        hintLabel.textContent = '提示文字 (Markdown):';
+        const toolbar = document.createElement('div');
+        toolbar.style.display = 'flex';
+        toolbar.style.gap = '8px';
+        toolbar.style.marginTop = '8px';
 
-        this.hintInput = document.createElement('textarea');
-        this.hintInput.className = 'demo-maker-editor-textarea';
-        this.hintInput.value = this.getStepHint();
-        this.hintInput.oninput = () => {
-            this.updateStepHint(this.hintInput.value);
-            this.callbacks.onPreview(this.currentStep);
-        };
+        const addTextBtn = document.createElement('button');
+        addTextBtn.className = 'demo-maker-repick-btn';
+        addTextBtn.textContent = '+ 文字';
+        addTextBtn.onclick = () => this.addTextAnnotation();
 
-        // 位置选择器
-        const placementGroup = document.createElement('div');
-        placementGroup.className = 'demo-maker-editor-field';
-        const placementLabel = document.createElement('label');
-        placementLabel.textContent = '标注位置:';
+        const addArrowBtn = document.createElement('button');
+        addArrowBtn.className = 'demo-maker-repick-btn';
+        addArrowBtn.textContent = '+ 箭头';
+        addArrowBtn.onclick = () => this.addArrowAnnotation();
 
-        this.placementSelect = document.createElement('select');
-        this.placementSelect.className = 'demo-maker-editor-select';
-        ['top', 'bottom', 'left', 'right', 'center'].forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p;
-            opt.textContent = p.toUpperCase();
-            this.placementSelect.appendChild(opt);
-        });
-        this.placementSelect.value = this.getStepPlacement();
-        this.placementSelect.onchange = () => {
-            this.updateStepPlacement(this.placementSelect.value as any);
-            this.callbacks.onPreview(this.currentStep);
-        };
-
-        hintGroup.appendChild(hintLabel);
-        hintGroup.appendChild(this.hintInput);
-        placementGroup.appendChild(placementLabel);
-        placementGroup.appendChild(this.placementSelect);
-
-        // 主题选择器
-        const themeGroup = document.createElement('div');
-        themeGroup.className = 'demo-maker-editor-field';
-        const themeLabel = document.createElement('label');
-        themeLabel.textContent = '标注主题:';
-
-        this.themeSelect = document.createElement('select');
-        this.themeSelect.className = 'demo-maker-editor-select';
-        ['default', 'primary', 'success', 'warning', 'danger', 'info'].forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t;
-            opt.textContent = t.toUpperCase();
-            this.themeSelect.appendChild(opt);
-        });
-        this.themeSelect.value = this.getStepTheme();
-        this.themeSelect.onchange = () => {
-            this.updateStepTheme(this.themeSelect.value as any);
-            this.callbacks.onPreview(this.currentStep);
-        };
-
-        themeGroup.appendChild(themeLabel);
-        themeGroup.appendChild(this.themeSelect);
-
-        // 偏移量编辑 (仅在非 center 模式下常用，但这里始终保留)
-        const offsetGroup = document.createElement('div');
-        offsetGroup.className = 'demo-maker-editor-field';
-        offsetGroup.innerHTML = '<label>偏移量 (X, Y):</label>';
-        const offsetRow = document.createElement('div');
-        offsetRow.style.display = 'flex';
-        offsetRow.style.gap = '8px';
-
-        const firstAnno = this.getOrCreateFirstTextAnno();
-        const ox = this.createNumberInput(firstAnno.position.offsetX || 0, (val) => {
-            firstAnno.position.offsetX = val;
-            this.callbacks.onPreview(this.currentStep);
-        });
-        const oy = this.createNumberInput(firstAnno.position.offsetY || 0, (val) => {
-            firstAnno.position.offsetY = val;
-            this.callbacks.onPreview(this.currentStep);
-        });
-        this.textOffsetInputs = { x: ox, y: oy };
-
-        offsetRow.appendChild(ox);
-        offsetRow.appendChild(oy);
-        offsetGroup.appendChild(offsetRow);
+        toolbar.appendChild(addTextBtn);
+        toolbar.appendChild(addArrowBtn);
+        toolbarGroup.appendChild(toolbar);
 
         // 组装内容
         content.appendChild(this.typeInfoEl);
@@ -173,14 +109,8 @@ export class EditorPanel {
         // 针对特殊类型的额外字段 (如 Select 的期望值)
         this.addTypeSpecificFields(content);
 
-        // 标注列表管理
-        content.appendChild(hintGroup);
-        content.appendChild(placementGroup);
-        content.appendChild(themeGroup);
-        content.appendChild(offsetGroup);
+        content.appendChild(toolbarGroup);
 
-        // 箭头编辑区域
-        this.addArrowEditingUI(content);
         // 底部按钮
         const footer = document.createElement('div');
         footer.className = 'demo-maker-editor-footer';
@@ -209,6 +139,71 @@ export class EditorPanel {
         document.addEventListener('mouseup', () => this.endDrag());
     }
 
+    private addTextAnnotation(): void {
+        if (!this.currentStep.annotations) this.currentStep.annotations = [];
+        const newAnno: TextAnnotation = {
+            id: 'text-' + Date.now(),
+            type: 'text',
+            content: '新批注',
+            position: {
+                anchor: this.currentStep.type === 'message' ? 'screen' : 'target',
+                placement: 'bottom',
+                offsetX: 0,
+                offsetY: 0
+            },
+            style: { theme: 'default' }
+        };
+        this.currentStep.annotations.push(newAnno);
+        this.callbacks.onAddAnnotation?.(newAnno);
+        this.callbacks.onPreview(this.currentStep);
+    }
+
+    private addArrowAnnotation(): void {
+        if (!this.currentStep.annotations) this.currentStep.annotations = [];
+        const newAnno: ArrowAnnotation = {
+            id: 'arrow-' + Date.now(),
+            type: 'arrow',
+            from: { x: 0.1, y: 0.1, anchor: 'screen' },
+            to: { x: 50, y: 50, anchor: 'target' }
+        };
+        this.currentStep.annotations.push(newAnno);
+        this.callbacks.onAddAnnotation?.(newAnno);
+        this.callbacks.onPreview(this.currentStep);
+    }
+
+    /**
+     * 删除批注（由 Overlay 触发）
+     */
+    deleteAnnotation(id: string): void {
+        if (!this.currentStep.annotations) return;
+        this.currentStep.annotations = this.currentStep.annotations.filter(a => a.id !== id);
+        this.callbacks.onPreview(this.currentStep);
+    }
+
+    /**
+     * 更新批注内容（由 Overlay 内联编辑触发）
+     */
+    updateAnnotationContent(id: string, content: string): void {
+        const anno = this.currentStep.annotations?.find(a => a.id === id);
+        if (anno && anno.type === 'text') {
+            (anno as TextAnnotation).content = content;
+            this.callbacks.onPreview(this.currentStep);
+        }
+    }
+
+    /**
+     * 更新标注数值（供外部拖拽同步使用）
+     */
+    updateAnnotation(anno: ArrowAnnotation | TextAnnotation): void {
+        const existing = this.currentStep.annotations?.find(a => a.id === anno.id);
+        if (existing && existing.type === 'arrow' && anno.type === 'arrow') {
+            (existing as ArrowAnnotation).from = anno.from;
+            (existing as ArrowAnnotation).to = anno.to;
+        } else if (existing && existing.type === 'text' && anno.type === 'text') {
+            (existing as TextAnnotation).position = anno.position;
+        }
+    }
+
     private updateTypeInfo(): void {
         const typeMap: any = {
             'click': '点击步骤',
@@ -227,185 +222,6 @@ export class EditorPanel {
             return;
         }
         this.locatorInfoEl.textContent = step.locator.humanDescription || step.locator.cssSelector || '已设置定位对象';
-    }
-
-    private getStepHint(): string {
-        const step = this.currentStep;
-        const firstAnno = step.annotations?.[0];
-        if (firstAnno && firstAnno.type === 'text') {
-            return firstAnno.content;
-        }
-        return '';
-    }
-
-    private getStepTheme(): string {
-        const firstAnno = this.currentStep.annotations?.[0];
-        if (firstAnno && firstAnno.type === 'text') {
-            return firstAnno.style?.theme || 'default';
-        }
-        return 'default';
-    }
-
-    private getStepPlacement(): string {
-        const step = this.currentStep;
-        const firstAnno = step.annotations?.[0];
-        if (firstAnno && firstAnno.type === 'text') {
-            return firstAnno.position.placement;
-        }
-        return 'bottom';
-    }
-
-    private getOrCreateFirstTextAnno(): TextAnnotation {
-        if (!this.currentStep.annotations) this.currentStep.annotations = [];
-        let firstAnno = this.currentStep.annotations.find(a => a.type === 'text') as TextAnnotation;
-        if (!firstAnno) {
-            firstAnno = {
-                id: 'anno-' + Date.now(),
-                type: 'text',
-                content: '',
-                position: { anchor: this.currentStep.type === 'message' ? 'screen' : 'target', placement: 'bottom' }
-            };
-            this.currentStep.annotations.push(firstAnno);
-        }
-        return firstAnno;
-    }
-
-    private updateStepTheme(theme: any): void {
-        const anno = this.getOrCreateFirstTextAnno();
-        if (!anno.style) anno.style = {};
-        anno.style.theme = theme;
-    }
-
-    private updateStepHint(val: string): void {
-        this.getOrCreateFirstTextAnno().content = val;
-    }
-
-    private updateStepPlacement(placement: 'top' | 'bottom' | 'left' | 'right' | 'center'): void {
-        this.getOrCreateFirstTextAnno().position.placement = placement;
-    }
-
-    private addArrowEditingUI(container: HTMLElement): void {
-        const arrowGroup = document.createElement('div');
-        arrowGroup.className = 'demo-maker-editor-field';
-
-        const label = document.createElement('label');
-        label.innerHTML = '➡️ 箭头标注:';
-        arrowGroup.appendChild(label);
-
-        const arrow = this.currentStep.annotations?.find(a => a.type === 'arrow') as any;
-
-        if (!arrow) {
-            const addBtn = document.createElement('button');
-            addBtn.className = 'demo-maker-repick-btn';
-            addBtn.textContent = '添加指引箭头';
-            addBtn.onclick = () => {
-                if (!this.currentStep.annotations) this.currentStep.annotations = [];
-                this.currentStep.annotations.push({
-                    id: 'arrow-' + Date.now(),
-                    type: 'arrow',
-                    from: { x: 10, y: 10, anchor: 'screen' },
-                    to: { x: 50, y: 50, anchor: 'target' }
-                });
-                // 重新初始化 UI 以显示编辑项
-                const parent = this.container.parentElement;
-                if (parent) {
-                    this.container.remove();
-                    this.initUI();
-                    parent.appendChild(this.container);
-                }
-                this.callbacks.onPreview(this.currentStep);
-            };
-            arrowGroup.appendChild(addBtn);
-        } else {
-            // 起点编辑
-            const fromRow = document.createElement('div');
-            fromRow.style.display = 'flex';
-            fromRow.style.alignItems = 'center';
-            fromRow.style.gap = '8px';
-            fromRow.innerHTML = `<span style="font-size:11px; width:45px">起点(%)</span>`;
-
-            const fx = this.createNumberInput(arrow.from.x, (val) => { arrow.from.x = val; this.callbacks.onPreview(this.currentStep); });
-            const fy = this.createNumberInput(arrow.from.y, (val) => { arrow.from.y = val; this.callbacks.onPreview(this.currentStep); });
-            fromRow.appendChild(fx);
-            fromRow.appendChild(fy);
-
-            // 终点编辑
-            const toRow = document.createElement('div');
-            toRow.style.display = 'flex';
-            toRow.style.alignItems = 'center';
-            toRow.style.gap = '8px';
-            toRow.innerHTML = `<span style="font-size:11px; width:45px">终点(%)</span>`;
-
-            const tx = this.createNumberInput(arrow.to.x, (val) => { arrow.to.x = val; this.callbacks.onPreview(this.currentStep); });
-            const ty = this.createNumberInput(arrow.to.y, (val) => { arrow.to.y = val; this.callbacks.onPreview(this.currentStep); });
-            toRow.appendChild(tx);
-            toRow.appendChild(ty);
-
-            this.arrowInputs = { fx, fy, tx, ty };
-
-            const delBtn = document.createElement('button');
-            delBtn.textContent = '删除箭头';
-            delBtn.className = 'demo-maker-exit-btn';
-            delBtn.style.padding = '2px 8px';
-            delBtn.style.fontSize = '10px';
-            delBtn.style.marginTop = '4px';
-            delBtn.onclick = () => {
-                this.currentStep.annotations = this.currentStep.annotations?.filter(a => a.type !== 'arrow');
-                const parent = this.container.parentElement;
-                if (parent) {
-                    this.container.remove();
-                    this.initUI();
-                    parent.appendChild(this.container);
-                }
-                this.callbacks.onPreview(this.currentStep);
-            };
-
-            arrowGroup.appendChild(fromRow);
-            arrowGroup.appendChild(toRow);
-            arrowGroup.appendChild(delBtn);
-        }
-
-        container.appendChild(arrowGroup);
-    }
-
-    /**
-     * 更新标注数值（供外部拖拽同步使用）
-     */
-    updateAnnotation(anno: ArrowAnnotation): void {
-        const arrow = this.currentStep.annotations?.find(a => a.id === anno.id) as ArrowAnnotation | undefined;
-        if (arrow && arrow.type === 'arrow') {
-            arrow.from.x = anno.from.x;
-            arrow.from.y = anno.from.y;
-            arrow.to.x = anno.to.x;
-            arrow.to.y = anno.to.y;
-
-            // 更新输入框数值
-            if (this.arrowInputs) {
-                this.arrowInputs.fx.value = this.formatCoord(arrow.from.x);
-                this.arrowInputs.fy.value = this.formatCoord(arrow.from.y);
-                this.arrowInputs.tx.value = this.formatCoord(arrow.to.x);
-                this.arrowInputs.ty.value = this.formatCoord(arrow.to.y);
-            }
-        }
-    }
-
-    private formatCoord(val: number): string {
-        // 如果是 0-1 的小数，保留 3 位
-        if (Math.abs(val) <= 1 && val !== 0) {
-            return val.toFixed(3);
-        }
-        return Math.round(val).toString();
-    }
-
-    private createNumberInput(value: number, onChange: (val: number) => void): HTMLInputElement {
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.className = 'demo-maker-editor-input';
-        input.style.flex = '1';
-        input.style.padding = '2px 4px';
-        input.value = value.toString();
-        input.oninput = () => onChange(parseFloat(input.value) || 0);
-        return input;
     }
 
     private addTypeSpecificFields(container: HTMLElement): void {
@@ -437,6 +253,13 @@ export class EditorPanel {
             this.currentStep.locator = locator;
             this.updateLocatorInfo();
         }
+    }
+
+    /**
+     * 获取当前编辑中的步骤
+     */
+    getStep(): FlowStep {
+        return this.currentStep;
     }
 
     show(): void {

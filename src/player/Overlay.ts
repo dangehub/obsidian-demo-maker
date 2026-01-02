@@ -4,16 +4,17 @@
  */
 
 import { Notice, Plugin, MarkdownRenderer, App } from 'obsidian';
-import { FlowDefinition, FlowStep, ClickStep, InputStep, SelectStep, MessageStep, ArrowAnnotation, TextAnnotation, Placement } from '../core/types';
+import { FlowDefinition, FlowStep, ClickStep, InputStep, SelectStep, MessageStep, ArrowAnnotation, TextAnnotation, Placement, Annotation } from '../core/types';
 
 /**
  * 遮罩层管理器
  */
 export class Overlay {
+    private plugin: Plugin;
     private container: HTMLDivElement;
     private backdrop: HTMLDivElement;
     private highlight: HTMLDivElement;
-    private tooltip: HTMLDivElement;
+    private tooltipContainer: HTMLDivElement; // 新容器，用于放置多个文字批注
     private svgLayer: SVGSVGElement;
     private controlBar: HTMLDivElement;
     private stepInfo: HTMLSpanElement;
@@ -24,21 +25,30 @@ export class Overlay {
     private onExit: () => void;
     private onNext: () => void;
     private onEdit: () => void;
-    private onAnnotationChange?: (anno: ArrowAnnotation) => void;
+    private onAnnotationChange?: (anno: Annotation) => void;
+    private onDeleteAnnotation?: (id: string) => void;
+    private onAnnotationContentChange?: (id: string, content: string) => void;
 
     private isEditingMode = false;
     private activeDrag: { anno: ArrowAnnotation; point: 'from' | 'to'; element: HTMLElement | null } | null = null;
+    private currentTarget: HTMLElement | null = null;
+    private currentAnnotations: Annotation[] = []; // 存储当前步骤的所有批注
 
-    constructor(options: {
+    constructor(plugin: Plugin, options: {
         onExit: () => void;
         onNext: () => void;
         onEdit: () => void;
-        onAnnotationChange?: (anno: ArrowAnnotation) => void;
+        onAnnotationChange?: (anno: Annotation) => void;
+        onDeleteAnnotation?: (id: string) => void;
+        onAnnotationContentChange?: (id: string, content: string) => void;
     }) {
+        this.plugin = plugin;
         this.onExit = options.onExit;
         this.onNext = options.onNext;
         this.onEdit = options.onEdit;
         this.onAnnotationChange = options.onAnnotationChange;
+        this.onDeleteAnnotation = options.onDeleteAnnotation;
+        this.onAnnotationContentChange = options.onAnnotationContentChange;
 
         // 创建主容器
         this.container = document.createElement('div');
@@ -52,9 +62,9 @@ export class Overlay {
         this.highlight = document.createElement('div');
         this.highlight.className = 'demo-maker-highlight';
 
-        // 创建提示气泡
-        this.tooltip = document.createElement('div');
-        this.tooltip.className = 'demo-maker-tooltip';
+        // 创建文字批注容器（用于放置多个文字批注）
+        this.tooltipContainer = document.createElement('div');
+        this.tooltipContainer.className = 'demo-maker-tooltip-container';
 
         // 创建 SVG 绘图层
         this.svgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -115,7 +125,7 @@ export class Overlay {
         this.container.appendChild(this.backdrop);
         this.container.appendChild(this.highlight);
         this.container.appendChild(this.svgLayer);
-        this.container.appendChild(this.tooltip);
+        this.container.appendChild(this.tooltipContainer);
         this.container.appendChild(this.controlBar);
     }
 
@@ -148,12 +158,13 @@ export class Overlay {
         if (active) {
             this.backdrop.style.display = 'none';
             this.highlight.style.display = 'none';
-            this.tooltip.style.display = 'none';
+            this.tooltipContainer.style.display = 'none';
             this.controlBar.style.display = 'none';
         } else {
             this.backdrop.style.display = 'block';
             this.controlBar.style.display = 'flex';
-            // highlight 和 tooltip 会在 renderStep 中恢复
+            this.tooltipContainer.style.display = 'block';
+            // highlight 会在 renderStep 中恢复
         }
     }
 
@@ -249,71 +260,155 @@ export class Overlay {
     }
 
     /**
-     * 显示提示文字 (支持 Markdown 渲染和主题)
+     * 渲染所有文字批注
      */
-    async showTooltip(anno: TextAnnotation, target?: HTMLElement): Promise<void> {
-        this.tooltip.innerHTML = ''; // 清空旧内容
+    async renderAllTextAnnotations(annotations: TextAnnotation[], target?: HTMLElement): Promise<void> {
+        // 清空旧内容
+        this.tooltipContainer.innerHTML = '';
+        this.currentTarget = target || null;
 
-        // 1. 设置主题并准备渲染
-        this.tooltip.className = `demo-maker-tooltip theme-${anno.style?.theme || 'default'}`;
-        this.tooltip.dataset.placement = anno.position.placement;
-        this.tooltip.style.display = 'block';
-        this.tooltip.style.visibility = 'hidden';
-        this.tooltip.style.top = '-9999px'; // 移动到屏幕外进行预渲染测量
+        for (const anno of annotations) {
+            await this.renderSingleTextAnnotation(anno, target);
+        }
+    }
 
-        // 2. 异步渲染 Markdown
+    /**
+     * 渲染单个文字批注
+     */
+    private async renderSingleTextAnnotation(anno: TextAnnotation, target?: HTMLElement): Promise<void> {
+        // 防止重复：如果已存在相同 ID 的批注，先移除
+        const existing = this.tooltipContainer.querySelector(`[data-annotation-id="${anno.id}"]`);
+        if (existing) existing.remove();
+
+        const tooltip = document.createElement('div');
+        tooltip.className = `demo-maker-tooltip theme-${anno.style?.theme || 'default'}`;
+        tooltip.dataset.annotationId = anno.id;
+        tooltip.dataset.placement = anno.position.placement;
+        tooltip.style.display = 'block';
+        tooltip.style.visibility = 'hidden';
+        tooltip.style.top = '-9999px';
+
+        // 内容容器
+        const contentEl = document.createElement('div');
+        contentEl.className = 'demo-maker-tooltip-content';
+
+        // 渲染 Markdown
         // @ts-ignore
-        await MarkdownRenderer.render(this.plugin.app, anno.content, this.tooltip, '', this.plugin);
+        await MarkdownRenderer.render(this.plugin.app, anno.content, contentEl, '', this.plugin);
 
-        // 3. 等待至少两轮重绘，确保异步内容（如图片、Markdown 扩展）已确定布局
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        tooltip.appendChild(contentEl);
 
+        // 编辑模式下添加按钮
         if (this.isEditingMode) {
-            this.tooltip.classList.add('is-editing');
-            this.tooltip.onmousedown = (e: MouseEvent) => {
+            tooltip.classList.add('is-editing');
+            const toolbar = this.createAnnotationToolbar(anno, tooltip, contentEl);
+            tooltip.appendChild(toolbar);
+
+            // 拖拽支持
+            tooltip.onmousedown = (e: MouseEvent) => {
+                if ((e.target as HTMLElement).closest('.demo-maker-anno-toolbar')) return;
                 if (e.button !== 0) return;
                 e.stopPropagation();
                 e.preventDefault();
-                this.startTextDragging(e, anno, target);
+                this.startTextDragging(e, anno, tooltip, target);
             };
-        } else {
-            this.tooltip.onmousedown = null;
         }
 
-        // 4. 执行定位计算
-        if (target) {
-            const rect = target.getBoundingClientRect();
-            this.positionTooltip(rect, anno.position.placement, anno.position.offsetX || 0, anno.position.offsetY || 0);
-        } else {
-            const vh = window.innerHeight;
-            const vw = window.innerWidth;
-            const virtualRect = {
-                top: vh / 2,
-                left: vw / 2,
-                bottom: vh / 2,
-                right: vw / 2,
-                width: 0,
-                height: 0,
-                x: vw / 2,
-                y: vh / 2,
-            } as DOMRect;
-            this.positionTooltip(virtualRect, 'center', anno.position.offsetX || 0, anno.position.offsetY || 0);
-        }
+        this.tooltipContainer.appendChild(tooltip);
 
-        // 5. 最终显现
-        this.tooltip.style.visibility = 'visible';
+        // 等待布局
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+        // 定位
+        this.positionTooltipElement(tooltip, anno, target);
+
+        // 显示
+        tooltip.style.visibility = 'visible';
     }
 
-    private startTextDragging(e: MouseEvent, anno: TextAnnotation, target?: HTMLElement): void {
+    /**
+     * 创建批注工具栏（编辑/删除按钮）
+     */
+    private createAnnotationToolbar(anno: TextAnnotation, tooltip: HTMLDivElement, contentEl: HTMLElement): HTMLDivElement {
+        const toolbar = document.createElement('div');
+        toolbar.className = 'demo-maker-anno-toolbar';
+
+        // 编辑按钮
+        const editBtn = document.createElement('button');
+        editBtn.className = 'demo-maker-anno-btn';
+        editBtn.textContent = '✏️';
+        editBtn.title = '编辑';
+        editBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.showInlineEditor(anno, tooltip, contentEl);
+        };
+
+        // 删除按钮
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'demo-maker-anno-btn demo-maker-anno-btn-danger';
+        deleteBtn.textContent = '🗑';
+        deleteBtn.title = '删除';
+        deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            tooltip.remove();
+            this.onDeleteAnnotation?.(anno.id);
+        };
+
+        toolbar.appendChild(editBtn);
+        toolbar.appendChild(deleteBtn);
+        return toolbar;
+    }
+
+    /**
+     * 显示内联编辑器
+     */
+    private showInlineEditor(anno: TextAnnotation, tooltip: HTMLDivElement, contentEl: HTMLElement): void {
+        contentEl.innerHTML = '';
+        const input = document.createElement('textarea');
+        input.className = 'demo-maker-inline-editor';
+        input.value = anno.content;
+        input.onkeydown = (e) => {
+            if (e.key === 'Escape') {
+                // 取消编辑，恢复显示 - 通知回调触发重渲染
+                this.onAnnotationContentChange?.(anno.id, anno.content);
+            }
+        };
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'demo-maker-inline-confirm';
+        confirmBtn.textContent = '✓';
+        confirmBtn.onclick = () => {
+            const newContent = input.value;
+            // 只调用回调，它会触发 onPreview 进行完整重渲染
+            // 不再调用 refreshSingleAnnotation，避免双重创建
+            this.onAnnotationContentChange?.(anno.id, newContent);
+        };
+
+        contentEl.appendChild(input);
+        contentEl.appendChild(confirmBtn);
+        input.focus();
+    }
+
+    /**
+     * 刷新单个批注的显示
+     */
+    private async refreshSingleAnnotation(anno: TextAnnotation): Promise<void> {
+        const existing = this.tooltipContainer.querySelector(`[data-annotation-id="${anno.id}"]`);
+        if (existing) existing.remove();
+        await this.renderSingleTextAnnotation(anno, this.currentTarget || undefined);
+    }
+
+    private startTextDragging(e: MouseEvent, anno: TextAnnotation, tooltip: HTMLDivElement, target?: HTMLElement): void {
         const startX = e.clientX;
         const startY = e.clientY;
         const startOffsetX = anno.position.offsetX || 0;
         const startOffsetY = anno.position.offsetY || 0;
 
-        this.tooltip.classList.add('is-dragging');
+        tooltip.classList.add('is-dragging');
 
         const onMouseMove = (moveEvent: MouseEvent) => {
-            if (!this.activeDrag) return;
+            // 确保 tooltip 仍在 DOM 中
+            if (!this.tooltipContainer.contains(tooltip)) return;
 
             const dx = moveEvent.clientX - startX;
             const dy = moveEvent.clientY - startY;
@@ -321,35 +416,16 @@ export class Overlay {
             anno.position.offsetX = startOffsetX + dx;
             anno.position.offsetY = startOffsetY + dy;
 
-            // 实时更新位置
-            if (target) {
-                const rect = target.getBoundingClientRect();
-                this.positionTooltip(rect, anno.position.placement, anno.position.offsetX, anno.position.offsetY);
-            } else {
-                const vh = window.innerHeight;
-                const vw = window.innerWidth;
-                const virtualRect = {
-                    top: vh / 2,
-                    left: vw / 2,
-                    bottom: vh / 2,
-                    right: vw / 2,
-                    width: 0,
-                    height: 0,
-                    x: vw / 2,
-                    y: vh / 2,
-                    toJSON: () => { }
-                } as DOMRect;
-                this.positionTooltip(virtualRect, 'center', anno.position.offsetX, anno.position.offsetY);
-            }
-
-            // 同步数据
-            (this.onAnnotationChange as any)?.(anno);
+            this.positionTooltipElement(tooltip, anno, target);
+            // 只在拖拽结束时同步数据，减少回调频率
         };
 
         const onMouseUp = () => {
-            this.tooltip.classList.remove('is-dragging');
+            tooltip.classList.remove('is-dragging');
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
+            // 拖拽结束后同步数据
+            this.onAnnotationChange?.(anno);
         };
 
         window.addEventListener('mousemove', onMouseMove);
@@ -357,102 +433,104 @@ export class Overlay {
     }
 
     /**
-     * 隐藏提示
+     * 隐藏所有文字批注
      */
     hideTooltip(): void {
-        this.tooltip.style.display = 'none';
+        this.tooltipContainer.innerHTML = '';
     }
 
     /**
-     * 计算气泡位置
+     * 定位单个批注元素
      */
-    private positionTooltip(rect: DOMRect, placement: Placement, offsetX: number = 0, offsetY: number = 0): void {
+    private positionTooltipElement(tooltip: HTMLDivElement, anno: TextAnnotation, target?: HTMLElement): void {
         const gap = 12;
-        // 既然使用了 fixed 定位，直接使用 viewport 坐标，不需要考虑 window.scrollY/X
-        this.tooltip.style.transform = '';
+        const placement = anno.position.placement;
+        const offsetX = anno.position.offsetX || 0;
+        const offsetY = anno.position.offsetY || 0;
 
-        let top = 0;
-        let left = 0;
+        let rect: DOMRect;
+        if (target) {
+            rect = target.getBoundingClientRect();
+        } else {
+            const vh = window.innerHeight;
+            const vw = window.innerWidth;
+            rect = { top: vh / 2, left: vw / 2, bottom: vh / 2, right: vw / 2, width: 0, height: 0, x: vw / 2, y: vh / 2 } as DOMRect;
+        }
 
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
+        const tw = tooltip.offsetWidth;
+        const th = tooltip.offsetHeight;
 
-        const tw = this.tooltip.offsetWidth;
-        const th = this.tooltip.offsetHeight;
+        let top = 0, left = 0;
 
         switch (placement) {
-            case 'top':
-                top = rect.top - th - gap;
-                left = centerX - tw / 2;
-                break;
-            case 'bottom':
-                top = rect.bottom + gap;
-                left = centerX - tw / 2;
-                break;
-            case 'left':
-                top = centerY - th / 2;
-                left = rect.left - tw - gap;
-                break;
-            case 'right':
-                top = centerY - th / 2;
-                left = rect.right + gap;
-                break;
-            case 'center':
-                top = centerY - th / 2;
-                left = centerX - tw / 2;
-                break;
+            case 'top': top = rect.top - th - gap; left = centerX - tw / 2; break;
+            case 'bottom': top = rect.bottom + gap; left = centerX - tw / 2; break;
+            case 'left': top = centerY - th / 2; left = rect.left - tw - gap; break;
+            case 'right': top = centerY - th / 2; left = rect.right + gap; break;
+            case 'center': top = centerY - th / 2; left = centerX - tw / 2; break;
         }
 
-        // 视口边界溢出修正
+        // 边界修正
         const padding = 10;
         const vw = window.innerWidth;
         const vh = window.innerHeight;
-
         if (left < padding) left = padding;
         if (left + tw > vw - padding) left = vw - tw - padding;
         if (top < padding) top = padding;
         if (top + th > vh - padding) top = vh - th - padding;
 
-        this.tooltip.style.top = `${top + offsetY}px`;
-        this.tooltip.style.left = `${left + offsetX}px`;
+        tooltip.style.top = `${top + offsetY}px`;
+        tooltip.style.left = `${left + offsetX}px`;
     }
 
     /**
      * 渲染步骤
      */
-    renderStep(step: FlowStep, target: HTMLElement | null, current: number, total: number): void {
+    async renderStep(step: FlowStep, target: HTMLElement | null, current: number, total: number): Promise<void> {
         this.updateStepInfo(current, total);
 
-        // 清理 SVG 层
+        // 存储当前批注和目标，供拖拽时重绘使用
+        this.currentAnnotations = step.annotations || [];
+        this.currentTarget = target;
+
+        // 清理 SVG 层和文字批注
         this.clearSvgLayer();
+        this.hideTooltip();
 
         // 渲染基础高亮和提示
         switch (step.type) {
             case 'click':
-                this.renderClickStep(step, target);
+                await this.renderClickStep(step, target);
                 break;
             case 'input':
-                this.renderInputStep(step, target);
+                await this.renderInputStep(step, target);
                 break;
             case 'select':
-                this.renderSelectStep(step, target);
+                await this.renderSelectStep(step, target);
                 break;
             case 'message':
-                this.renderMessageStep(step, target);
+                await this.renderMessageStep(step, target);
                 break;
             case 'wait':
-                this.renderWaitStep(step);
+                await this.renderWaitStep(step);
                 break;
         }
 
-        // 渲染所有额外标注 (如箭头)
-        if (step.annotations) {
-            step.annotations.forEach(anno => {
-                if (anno.type === 'arrow') {
-                    this.renderArrow(anno, target);
-                }
-            });
-        }
+        // 渲染所有额外标注 (如箭头) - 在文字批注完成后
+        this.renderAllArrows();
+    }
+
+    /**
+     * 渲染所有箭头批注
+     */
+    private renderAllArrows(): void {
+        this.currentAnnotations.forEach(anno => {
+            if (anno.type === 'arrow') {
+                this.renderArrow(anno, this.currentTarget);
+            }
+        });
     }
 
     setEditingMode(editing: boolean): void {
@@ -482,11 +560,52 @@ export class Overlay {
 
         this.svgLayer.appendChild(line);
 
-        // 如果处于编辑模式，渲染拖拽手柄
+        // 如果处于编辑模式，渲染拖拽手柄和删除按钮
         if (this.isEditingMode) {
             this.renderArrowHandle(from, anno, 'from', target);
             this.renderArrowHandle(to, anno, 'to', target);
+            this.renderArrowDeleteButton(from, to, anno);
         }
+    }
+
+    /**
+     * 渲染箭头删除按钮
+     */
+    private renderArrowDeleteButton(from: { x: number; y: number }, to: { x: number; y: number }, anno: ArrowAnnotation): void {
+        // 删除按钮放在箭头中点
+        const midX = (from.x + to.x) / 2;
+        const midY = (from.y + to.y) / 2;
+
+        const deleteBtn = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        deleteBtn.setAttribute('class', 'demo-maker-arrow-delete');
+        deleteBtn.style.cursor = 'pointer';
+
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        bg.setAttribute('cx', `${midX}`);
+        bg.setAttribute('cy', `${midY}`);
+        bg.setAttribute('r', '10');
+        bg.setAttribute('fill', '#ef4444');
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', `${midX}`);
+        text.setAttribute('y', `${midY + 4}`);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('fill', 'white');
+        text.setAttribute('font-size', '12');
+        text.textContent = '×';
+
+        deleteBtn.appendChild(bg);
+        deleteBtn.appendChild(text);
+
+        deleteBtn.onmousedown = (e: MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            this.onDeleteAnnotation?.(anno.id);
+            // 清理 SVG 层中的该箭头
+            this.clearSvgLayer();
+        };
+
+        this.svgLayer.appendChild(deleteBtn);
     }
 
     private renderArrowHandle(pos: { x: number; y: number }, anno: ArrowAnnotation, point: 'from' | 'to', target: HTMLElement | null): void {
@@ -515,17 +634,16 @@ export class Overlay {
             this.activeDrag.anno[this.activeDrag.point].x = newPos.x;
             this.activeDrag.anno[this.activeDrag.point].y = newPos.y;
 
-            // 实时同步数据到编辑器
-            this.onAnnotationChange?.(this.activeDrag.anno);
-
-            // 重新绘制，为了性能这里可以只更新当前 Line 和 Handle，但为了简单我们重绘所有
+            // 重新绘制所有箭头
             this.clearSvgLayer();
-            // 注意：这里由于我们没有保存当前 step，所以单独调用 renderArrow 可能不方便
-            // 我们直接手动重画当前 Arrow
-            this.renderArrow(this.activeDrag.anno, this.activeDrag.element);
+            this.renderAllArrows();
         };
 
         const onMouseUp = () => {
+            // 拖拽结束后同步数据到编辑器
+            if (this.activeDrag) {
+                this.onAnnotationChange?.(this.activeDrag.anno);
+            }
             this.activeDrag = null;
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
@@ -577,94 +695,89 @@ export class Overlay {
     /**
      * 渲染点击步骤
      */
-    private renderClickStep(step: ClickStep, target: HTMLElement | null): void {
+    private async renderClickStep(step: ClickStep, target: HTMLElement | null): Promise<void> {
         this.setClickable(true);
         this.setNextButtonVisible(false);
 
         if (target) {
             this.highlightElement(target);
-            const anno = step.annotations?.find(a => a.type === 'text') as TextAnnotation;
-            if (anno) {
-                this.showTooltip(anno, target);
-            } else {
-                this.hideTooltip();
-            }
+            const textAnnos = (step.annotations?.filter(a => a.type === 'text') || []) as TextAnnotation[];
+            await this.renderAllTextAnnotations(textAnnos, target);
         } else {
             this.hideHighlight();
-            this.showTooltip(this.createTemporaryAnnotation('无法定位目标元素', 'center', 'screen'));
+            await this.renderAllTextAnnotations([this.createTemporaryAnnotation('无法定位目标元素', 'center', 'screen')]);
         }
     }
 
     /**
      * 渲染输入步骤
      */
-    private renderInputStep(step: InputStep, target: HTMLElement | null): void {
+    private async renderInputStep(step: InputStep, target: HTMLElement | null): Promise<void> {
         this.setClickable(true);
         this.setNextButtonVisible(true);
         this.setNextButtonText('下一步');
 
         if (target) {
             this.highlightElement(target);
-            const anno = step.annotations?.find(a => a.type === 'text') as TextAnnotation;
-            if (anno) {
-                this.showTooltip(anno, target);
-            } else {
-                this.hideTooltip();
-            }
+            const textAnnos = (step.annotations?.filter(a => a.type === 'text') || []) as TextAnnotation[];
+            await this.renderAllTextAnnotations(textAnnos, target);
         } else {
             this.hideHighlight();
-            this.showTooltip(this.createTemporaryAnnotation('无法定位目标元素', 'center', 'screen'));
+            await this.renderAllTextAnnotations([this.createTemporaryAnnotation('无法定位目标元素', 'center', 'screen')]);
         }
     }
 
     /**
      * 渲染选择步骤
      */
-    private renderSelectStep(step: SelectStep, target: HTMLElement | null, hint?: string): void {
+    private async renderSelectStep(step: SelectStep, target: HTMLElement | null, hint?: string): Promise<void> {
         this.setClickable(true);
         this.setNextButtonVisible(true);
         this.setNextButtonText('下一步');
 
         if (target) {
             this.highlightElement(target);
-            const existingAnno = step.annotations?.find(a => a.type === 'text') as TextAnnotation;
-            const anno = existingAnno || this.createTemporaryAnnotation(hint || `请选择：${step.expectedValue}`);
-            this.showTooltip(anno, target);
+            const textAnnos = (step.annotations?.filter(a => a.type === 'text') || []) as TextAnnotation[];
+            if (textAnnos.length > 0) {
+                await this.renderAllTextAnnotations(textAnnos, target);
+            } else {
+                await this.renderAllTextAnnotations([this.createTemporaryAnnotation(hint || `请选择：${step.expectedValue}`)], target);
+            }
         } else {
             this.hideHighlight();
-            this.showTooltip(this.createTemporaryAnnotation('无法定位目标选择框', 'center', 'screen'));
+            await this.renderAllTextAnnotations([this.createTemporaryAnnotation('无法定位目标选择框', 'center', 'screen')]);
         }
     }
 
     /**
      * 渲染消息步骤
      */
-    private renderMessageStep(step: MessageStep, target: HTMLElement | null): void {
+    private async renderMessageStep(step: MessageStep, target: HTMLElement | null): Promise<void> {
         this.setClickable(false);
         this.setNextButtonVisible(true);
         this.setNextButtonText('继续');
 
-        const anno = step.annotations?.find(a => a.type === 'text') as TextAnnotation;
+        const textAnnos = (step.annotations?.filter(a => a.type === 'text') || []) as TextAnnotation[];
         if (target) {
             this.highlightElement(target);
-            if (anno) this.showTooltip(anno, target);
+            await this.renderAllTextAnnotations(textAnnos, target);
         } else {
             this.hideHighlight();
-            if (anno) this.showTooltip(anno);
+            await this.renderAllTextAnnotations(textAnnos);
         }
     }
 
     /**
      * 渲染等待步骤
      */
-    private renderWaitStep(step: FlowStep): void {
+    private async renderWaitStep(step: FlowStep): Promise<void> {
         this.setClickable(false);
         this.hideHighlight();
         this.setNextButtonVisible(false);
 
         if (step.type === 'wait') {
             const seconds = Math.ceil(step.durationMs / 1000);
-            this.showTooltip(this.createTemporaryAnnotation(`等待 ${seconds} 秒...`, 'center', 'screen'));
+            await this.renderAllTextAnnotations([this.createTemporaryAnnotation(`等待 ${seconds} 秒...`, 'center', 'screen')]);
         }
     }
 
