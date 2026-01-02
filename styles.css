@@ -8,10 +8,25 @@
 
 .demo-maker-overlay {
 	position: fixed;
-	inset: 0;
-	z-index: 9999;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	z-index: 10000;
 	pointer-events: none;
+	overflow: hidden;
 }
+
+.demo-maker-svg-layer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 10001;
+}
+
 
 /* ============================================================
    背景遮罩（变暗效果）
@@ -158,6 +173,17 @@
 	color: #fecaca;
 }
 
+/* 编辑按钮 */
+.demo-maker-edit-btn {
+	background: rgba(99, 102, 241, 0.1);
+	color: #a5b4fc;
+	border: 1px solid rgba(99, 102, 241, 0.3) !important;
+}
+
+.demo-maker-edit-btn:hover {
+	background: rgba(99, 102, 241, 0.2);
+}
+
 /* 下一步按钮 */
 .demo-maker-next-btn {
 	background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
@@ -170,6 +196,193 @@
 	transform: translateY(-1px);
 	box-shadow: 0 4px 12px rgba(99, 102, 241, 0.5);
 }
+
+/* ============================================================
+   箭头拖拽控制点
+   ============================================================ */
+.demo-maker-arrow-handle {
+	fill: rgba(255, 255, 255, 0.8);
+	stroke: #3b82f6;
+	stroke-width: 2px;
+	cursor: move;
+	pointer-events: auto;
+	/* 允许点击虽然容器禁用了 */
+	transition: r 0.2s, fill 0.2s;
+}
+
+.demo-maker-arrow-handle:hover {
+	fill: #3b82f6;
+	r: 8px;
+	/* 悬停时变大 */
+}
+
+/* ============================================================
+   编辑面板
+   ============================================================ */
+
+.demo-maker-editor-panel {
+	position: fixed;
+	bottom: 40px;
+	right: 40px;
+	z-index: 10010;
+	width: 340px;
+	background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+	border-radius: 12px;
+	box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+	color: #f1f5f9;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	animation: demo-maker-scale-in 0.2s ease;
+}
+
+.demo-maker-editor-header {
+	padding: 12px 16px;
+	background: rgba(255, 255, 255, 0.05);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	font-weight: 600;
+	cursor: move;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.demo-maker-editor-content {
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.demo-maker-editor-field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.demo-maker-editor-field label {
+	font-size: 12px;
+	color: #94a3b8;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.demo-maker-editor-locator-preview {
+	padding: 8px 12px;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 6px;
+	font-family: var(--font-monospace);
+	font-size: 12px;
+	color: #fbbf24;
+	word-break: break-all;
+}
+
+.demo-maker-editor-textarea {
+	width: 100%;
+	min-height: 80px;
+	background: rgba(0, 0, 0, 0.2);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 6px;
+	color: #fff;
+	padding: 8px;
+	font-size: 13px;
+	resize: vertical;
+}
+
+.demo-maker-editor-input,
+.demo-maker-editor-select {
+	width: 100%;
+	background: rgba(0, 0, 0, 0.2);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 6px;
+	color: #fff;
+	padding: 8px;
+	font-size: 13px;
+}
+
+
+.demo-maker-repick-btn {
+	background: rgba(16, 185, 129, 0.1);
+	color: #6ee7b7;
+	border: 1px solid rgba(16, 185, 129, 0.3) !important;
+	padding: 6px 10px;
+	font-size: 12px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.demo-maker-editor-footer {
+	padding: 12px 16px;
+	border-top: 1px solid rgba(255, 255, 255, 0.1);
+	display: flex;
+	gap: 10px;
+}
+
+.demo-maker-editor-save {
+	flex: 1;
+	background: #6366f1;
+	color: white;
+	border: none;
+	padding: 8px;
+	border-radius: 6px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.demo-maker-editor-cancel {
+	background: transparent;
+	color: #94a3b8;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	padding: 8px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+/* 拾取模式 */
+.demo-maker-picking-mode {
+	cursor: crosshair !important;
+}
+
+.demo-maker-picking-mode .demo-maker-overlay {
+	pointer-events: none !important;
+}
+
+.demo-maker-picking-mode .demo-maker-editor-panel {
+	pointer-events: auto !important;
+}
+
+.demo-maker-picking-mode .demo-maker-editor-panel * {
+	cursor: default;
+}
+
+/* 拾取高亮框 */
+.demo-maker-picker-highlight {
+	position: fixed;
+	pointer-events: none;
+	z-index: 10020;
+	border: 2px dashed #3b82f6;
+	background: rgba(59, 130, 246, 0.1);
+	border-radius: 4px;
+	transition: all 0.1s ease-out;
+	display: flex;
+	align-items: flex-end;
+}
+
+.demo-maker-picker-label {
+	position: absolute;
+	bottom: 100%;
+	left: 0;
+	background: #3b82f6;
+	color: white;
+	padding: 2px 6px;
+	font-size: 11px;
+	font-weight: 600;
+	border-radius: 4px 4px 0 0;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+
 
 /* ============================================================
    动画效果

@@ -7,6 +7,8 @@ import { Notice, Plugin } from 'obsidian';
 import { FlowDefinition, FlowStep, ClickStep, InputStep, SelectStep, MessageStep } from '../core/types';
 import { resolveLocator, pollLocator, LocateResult } from '../core/Locator';
 import { Overlay } from './Overlay';
+import { EditorService } from '../editor/EditorService';
+import { FlowManager } from '../core/FlowManager';
 
 /**
  * 播放状态
@@ -32,6 +34,7 @@ export class PlayerService {
     private currentIndex = 0;
     private state: PlayerState = 'idle';
     private events: PlayerEvents = {};
+    private editor: EditorService;
 
     private clickHandler: ((evt: MouseEvent) => void) | null = null;
     private keyHandler: ((evt: KeyboardEvent) => void) | null = null;
@@ -44,6 +47,7 @@ export class PlayerService {
     constructor(plugin: Plugin, events?: PlayerEvents) {
         this.plugin = plugin;
         this.events = events || {};
+        this.editor = new EditorService(plugin.app);
     }
 
     /**
@@ -76,6 +80,8 @@ export class PlayerService {
         this.overlay = new Overlay({
             onExit: () => this.stop(),
             onNext: () => this.handleNext(),
+            onEdit: () => this.handleEdit(),
+            onAnnotationChange: (anno) => this.editor.handleAnnotationDrag(anno)
         });
         this.overlay.show();
 
@@ -87,6 +93,50 @@ export class PlayerService {
 
         // 显示第一步
         await this.showCurrentStep();
+    }
+
+    /**
+     * 进入编辑模式
+     */
+    private handleEdit(): void {
+        if (!this.flow || this.state !== 'playing') return;
+
+        const currentStep = this.flow.steps[this.currentIndex];
+        this.state = 'paused';
+
+        // 告知遮罩层进入编辑模式（显示拖拽点）
+        this.overlay?.setEditingMode(true);
+        this.overlay?.renderStep(currentStep, this.currentTarget, this.currentIndex + 1, this.flow.steps.length);
+
+        this.editor.startEditing(currentStep, {
+            onSave: async (updatedStep) => {
+                if (this.flow) {
+                    this.flow.steps[this.currentIndex] = updatedStep;
+                    // 持久化到文件
+                    const fm = new FlowManager(this.plugin);
+                    await fm.saveFlow(this.flow);
+                    new Notice('步骤已保存');
+                }
+                this.state = 'playing';
+                // 重新渲染当前步以应用更改
+                this.currentTarget = null;
+                await this.showCurrentStep();
+            },
+            onCancel: () => {
+                this.state = 'playing';
+                this.showCurrentStep(); // 恢复原始显示
+            },
+            onPreview: async (updatedStep) => {
+                if (this.overlay) {
+                    this.overlay.renderStep(
+                        updatedStep,
+                        this.currentTarget,
+                        this.currentIndex + 1,
+                        this.flow?.steps.length || 0
+                    );
+                }
+            }
+        });
     }
 
     /**
@@ -238,8 +288,7 @@ export class PlayerService {
                 step,
                 result.element,
                 this.currentIndex + 1,
-                this.flow.steps.length,
-                `请选择：${step.expectedValue}`  // 传递提示文字
+                this.flow.steps.length
             );
 
             // 监听 select 的 change 事件
@@ -272,8 +321,7 @@ export class PlayerService {
                 step,
                 null,
                 this.currentIndex + 1,
-                this.flow.steps.length,
-                `请选择：${step.expectedValue}`
+                this.flow.steps.length
             );
 
             if (step.locator.humanDescription) {

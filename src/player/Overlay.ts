@@ -3,7 +3,7 @@
  * 负责显示遮罩、高亮框和提示气泡
  */
 
-import { FlowStep, TextAnnotation, Placement, ClickStep, InputStep, SelectStep } from '../core/types';
+import { FlowStep, TextAnnotation, ArrowAnnotation, Placement, ClickStep, InputStep, SelectStep } from '../core/types';
 
 /**
  * 遮罩层管理器
@@ -13,17 +13,31 @@ export class Overlay {
     private backdrop: HTMLDivElement;
     private highlight: HTMLDivElement;
     private tooltip: HTMLDivElement;
+    private svgLayer: SVGSVGElement;
     private controlBar: HTMLDivElement;
     private stepInfo: HTMLSpanElement;
     private nextButton: HTMLButtonElement;
+    private editButton: HTMLButtonElement;
     private exitButton: HTMLButtonElement;
 
     private onExit: () => void;
     private onNext: () => void;
+    private onEdit: () => void;
+    private onAnnotationChange?: (anno: ArrowAnnotation) => void;
 
-    constructor(options: { onExit: () => void; onNext: () => void }) {
+    private isEditingMode = false;
+    private activeDrag: { anno: ArrowAnnotation; point: 'from' | 'to'; element: HTMLElement | null } | null = null;
+
+    constructor(options: {
+        onExit: () => void;
+        onNext: () => void;
+        onEdit: () => void;
+        onAnnotationChange?: (anno: ArrowAnnotation) => void;
+    }) {
         this.onExit = options.onExit;
         this.onNext = options.onNext;
+        this.onEdit = options.onEdit;
+        this.onAnnotationChange = options.onAnnotationChange;
 
         // 创建主容器
         this.container = document.createElement('div');
@@ -41,6 +55,28 @@ export class Overlay {
         this.tooltip = document.createElement('div');
         this.tooltip.className = 'demo-maker-tooltip';
 
+        // 创建 SVG 绘图层
+        this.svgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        this.svgLayer.setAttribute('class', 'demo-maker-svg-layer');
+
+        // 添加箭头定义
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', 'demo-maker-arrowhead');
+        marker.setAttribute('markerWidth', '10');
+        marker.setAttribute('markerHeight', '7');
+        marker.setAttribute('refX', '9');
+        marker.setAttribute('refY', '3.5');
+        marker.setAttribute('orient', 'auto');
+
+        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+        polygon.setAttribute('fill', '#3b82f6');
+
+        marker.appendChild(polygon);
+        defs.appendChild(marker);
+        this.svgLayer.appendChild(defs);
+
         // 创建控制栏
         this.controlBar = document.createElement('div');
         this.controlBar.className = 'demo-maker-control-bar';
@@ -51,6 +87,12 @@ export class Overlay {
         this.exitButton.textContent = '退出引导';
         this.exitButton.onclick = () => this.onExit();
 
+        // 编辑按钮
+        this.editButton = document.createElement('button');
+        this.editButton.className = 'demo-maker-edit-btn';
+        this.editButton.textContent = '编辑此步';
+        this.editButton.onclick = () => this.onEdit();
+
         // 步骤信息
         this.stepInfo = document.createElement('span');
         this.stepInfo.className = 'demo-maker-step-info';
@@ -58,18 +100,20 @@ export class Overlay {
         // 下一步按钮（用于 input/message 类型）
         this.nextButton = document.createElement('button');
         this.nextButton.className = 'demo-maker-next-btn';
+
+        // 组装控制栏
+        this.controlBar.appendChild(this.exitButton);
+        this.controlBar.appendChild(this.editButton);
+        this.controlBar.appendChild(this.stepInfo);
+        this.controlBar.appendChild(this.nextButton);
         this.nextButton.textContent = '下一步';
         this.nextButton.onclick = () => this.onNext();
         this.nextButton.style.display = 'none';
 
-        // 组装控制栏
-        this.controlBar.appendChild(this.exitButton);
-        this.controlBar.appendChild(this.stepInfo);
-        this.controlBar.appendChild(this.nextButton);
-
         // 组装容器
         this.container.appendChild(this.backdrop);
         this.container.appendChild(this.highlight);
+        this.container.appendChild(this.svgLayer);
         this.container.appendChild(this.tooltip);
         this.container.appendChild(this.controlBar);
     }
@@ -260,10 +304,13 @@ export class Overlay {
     /**
      * 渲染步骤
      */
-    renderStep(step: FlowStep, target: HTMLElement | null, current: number, total: number, hint?: string): void {
+    renderStep(step: FlowStep, target: HTMLElement | null, current: number, total: number): void {
         this.updateStepInfo(current, total);
 
-        // 根据步骤类型渲染
+        // 清理 SVG 层
+        this.clearSvgLayer();
+
+        // 渲染基础高亮和提示
         switch (step.type) {
             case 'click':
                 this.renderClickStep(step, target);
@@ -272,7 +319,7 @@ export class Overlay {
                 this.renderInputStep(step, target);
                 break;
             case 'select':
-                this.renderSelectStep(step, target, hint);
+                this.renderSelectStep(step, target);
                 break;
             case 'message':
                 this.renderMessageStep(step, target);
@@ -281,6 +328,125 @@ export class Overlay {
                 this.renderWaitStep(step);
                 break;
         }
+
+        // 渲染所有额外标注 (如箭头)
+        if (step.annotations) {
+            step.annotations.forEach(anno => {
+                if (anno.type === 'arrow') {
+                    this.renderArrow(anno, target);
+                }
+            });
+        }
+    }
+
+    setEditingMode(editing: boolean): void {
+        this.isEditingMode = editing;
+    }
+
+    private clearSvgLayer(): void {
+        // 保留 defs，移除其它元素
+        const defs = this.svgLayer.querySelector('defs');
+        while (this.svgLayer.lastChild && this.svgLayer.lastChild !== defs) {
+            this.svgLayer.removeChild(this.svgLayer.lastChild);
+        }
+    }
+
+    private renderArrow(anno: ArrowAnnotation, target: HTMLElement | null): void {
+        const from = this.calculatePoint(anno.from, target);
+        const to = this.calculatePoint(anno.to, target);
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', `${from.x}`);
+        line.setAttribute('y1', `${from.y}`);
+        line.setAttribute('x2', `${to.x}`);
+        line.setAttribute('y2', `${to.y}`);
+        line.setAttribute('stroke', anno.style?.color || '#3b82f6');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('marker-end', 'url(#demo-maker-arrowhead)');
+
+        this.svgLayer.appendChild(line);
+
+        // 如果处于编辑模式，渲染拖拽手柄
+        if (this.isEditingMode) {
+            this.renderArrowHandle(from, anno, 'from', target);
+            this.renderArrowHandle(to, anno, 'to', target);
+        }
+    }
+
+    private renderArrowHandle(pos: { x: number; y: number }, anno: ArrowAnnotation, point: 'from' | 'to', target: HTMLElement | null): void {
+        const handle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        handle.setAttribute('cx', `${pos.x}`);
+        handle.setAttribute('cy', `${pos.y}`);
+        handle.setAttribute('r', '6');
+        handle.setAttribute('class', 'demo-maker-arrow-handle');
+
+        handle.onmousedown = (e: MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            this.startDragging(e, anno, point, target);
+        };
+
+        this.svgLayer.appendChild(handle);
+    }
+
+    private startDragging(e: MouseEvent, anno: ArrowAnnotation, point: 'from' | 'to', target: HTMLElement | null): void {
+        this.activeDrag = { anno, point, element: target };
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            if (!this.activeDrag) return;
+
+            const newPos = this.getRelativePoint(moveEvent.clientX, moveEvent.clientY, this.activeDrag.anno[this.activeDrag.point].anchor, this.activeDrag.element);
+            this.activeDrag.anno[this.activeDrag.point].x = newPos.x;
+            this.activeDrag.anno[this.activeDrag.point].y = newPos.y;
+
+            // 实时同步数据到编辑器
+            this.onAnnotationChange?.(this.activeDrag.anno);
+
+            // 重新绘制，为了性能这里可以只更新当前 Line 和 Handle，但为了简单我们重绘所有
+            this.clearSvgLayer();
+            // 注意：这里由于我们没有保存当前 step，所以单独调用 renderArrow 可能不方便
+            // 我们直接手动重画当前 Arrow
+            this.renderArrow(this.activeDrag.anno, this.activeDrag.element);
+        };
+
+        const onMouseUp = () => {
+            this.activeDrag = null;
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    }
+
+    private getRelativePoint(clientX: number, clientY: number, anchor: 'screen' | 'target', target: HTMLElement | null): { x: number; y: number } {
+        if (anchor === 'target' && target) {
+            const rect = target.getBoundingClientRect();
+            return {
+                x: ((clientX - rect.left) / rect.width) * 100,
+                y: ((clientY - rect.top) / rect.height) * 100
+            };
+        }
+        // 屏幕坐标使用百分比 (0-1)
+        return {
+            x: clientX / window.innerWidth,
+            y: clientY / window.innerHeight
+        };
+    }
+
+    private calculatePoint(config: { x: number; y: number; anchor: 'screen' | 'target' }, target: HTMLElement | null): { x: number; y: number } {
+        if (config.anchor === 'target' && target) {
+            const rect = target.getBoundingClientRect();
+            return {
+                x: rect.left + rect.width * (config.x / 100),
+                y: rect.top + rect.height * (config.y / 100)
+            };
+        }
+        // 默认为屏幕坐标 (百分比或像素)
+        return {
+            x: config.x > 1 ? config.x : window.innerWidth * config.x,
+            y: config.y > 1 ? config.y : window.innerHeight * config.y
+        };
     }
 
     /**

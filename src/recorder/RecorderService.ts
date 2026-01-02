@@ -7,74 +7,16 @@ import { App, Modal, Notice, Setting } from 'obsidian';
 import { FlowDefinition, FlowStep, ClickStep, InputStep, SelectStep, WaitStep, MessageStep, Locator } from '../core/types';
 import { FlowManager } from '../core/FlowManager';
 import { RecorderPanel } from './RecorderPanel';
-
-/**
- * 可点击元素的选择器列表
- */
-const CLICKABLE_SELECTORS = [
-    'button',
-    'a',
-    '[role="button"]',
-    '[role="menuitem"]',
-    '[role="tab"]',
-    '.clickable-icon',
-    '.nav-action-button',
-    '.vertical-tab-nav-item',
-    '.menu-item',
-    '.setting-item-control > *',
-];
-
-/**
- * 向上查找最合适的可点击元素
- * 对于 SVG/path 等内部元素，找到外层的可点击容器
- */
-function findBestClickableElement(element: HTMLElement): HTMLElement {
-    // 如果元素本身就是可点击类型，直接返回
-    const tagName = element.tagName.toLowerCase();
-    if (tagName === 'button' || tagName === 'a' || tagName === 'select' || tagName === 'input') {
-        return element;
-    }
-
-    // 如果是 SVG 相关元素，向上查找
-    if (tagName === 'svg' || tagName === 'path' || tagName === 'circle' || tagName === 'rect' || tagName === 'line') {
-        // 查找最近的可点击父元素
-        for (const selector of CLICKABLE_SELECTORS) {
-            const parent = element.closest(selector);
-            if (parent && parent instanceof HTMLElement) {
-                return parent;
-            }
-        }
-        // 如果没找到，至少找到 SVG 的直接父元素
-        const svgParent = element.closest('svg')?.parentElement;
-        if (svgParent) {
-            return svgParent;
-        }
-    }
-
-    // 检查元素是否有可点击的父容器
-    for (const selector of CLICKABLE_SELECTORS) {
-        const parent = element.closest(selector);
-        if (parent && parent instanceof HTMLElement && parent !== element) {
-            // 如果父元素很近（3层以内），使用父元素
-            let depth = 0;
-            let current: HTMLElement | null = element;
-            while (current && current !== parent && depth < 3) {
-                current = current.parentElement;
-                depth++;
-            }
-            if (depth < 3) {
-                return parent;
-            }
-        }
-    }
-
-    return element;
-}
+import {
+    findBestClickableElement,
+    buildCssSelector,
+    CLICKABLE_SELECTORS
+} from '../core/LocatorUtils';
 
 /**
  * 从元素构建定位器
  */
-function buildLocatorFromElement(rawElement: HTMLElement): Locator {
+export function buildLocatorFromElement(rawElement: HTMLElement): Locator {
     // 首先找到最佳的可点击元素
     const element = findBestClickableElement(rawElement);
 
@@ -142,7 +84,7 @@ function buildLocatorFromElement(rawElement: HTMLElement): Locator {
 /**
  * 检测设置页控件的上下文信息
  */
-function detectSettingContext(element: HTMLElement): { settingName: string; controlType: 'select' | 'toggle' | 'button' | 'input' | 'slider' } | null {
+export function detectSettingContext(element: HTMLElement): { settingName: string; controlType: 'select' | 'toggle' | 'button' | 'input' | 'slider' } | null {
     // 检查元素是否在 .setting-item 内
     const settingItem = element.closest('.setting-item');
     if (!settingItem) return null;
@@ -181,9 +123,8 @@ function detectSettingContext(element: HTMLElement): { settingName: string; cont
 
 /**
  * 检测元素内部的 SVG 图标类名
- * 用于区分相似结构的图标按钮（如齿轮 vs 问号）
  */
-function detectSvgIconClass(element: HTMLElement): string | null {
+export function detectSvgIconClass(element: HTMLElement): string | null {
     const svg = element.querySelector('svg');
     if (!svg) return null;
 
@@ -204,98 +145,11 @@ function detectSvgIconClass(element: HTMLElement): string | null {
     return null;
 }
 
-/**
- * 构建 CSS 选择器
- * @param element 目标元素
- * @param svgIconClass 可选的 SVG 图标类名，用于生成 :has() 选择器
- */
-function buildCssSelector(element: HTMLElement, svgIconClass?: string | null): string {
-    const parts: string[] = [];
-    let current: HTMLElement | null = element;
-    let depth = 0;
-    let isFirstElement = true;
-
-    while (current && depth < 4 && current !== document.body) {
-        const tag = current.tagName.toLowerCase();
-
-        // 如果有 ID，直接使用
-        if (current.id) {
-            parts.unshift(`#${CSS.escape(current.id)}`);
-            break;
-        }
-
-        // 尝试使用有意义的类名
-        const meaningfulClasses = Array.from(current.classList)
-            .filter(c => !c.startsWith('cm-') && !c.match(/^[a-z]{20,}$/))
-            .slice(0, 2);
-
-        if (meaningfulClasses.length > 0) {
-            let classSelector = meaningfulClasses.map(c => `.${CSS.escape(c)}`).join('');
-
-            // 如果是第一层元素且有 SVG 图标类名，添加 :has() 选择器以精确区分
-            if (isFirstElement && svgIconClass) {
-                classSelector += `:has(.${CSS.escape(svgIconClass)})`;
-            }
-
-            // 如果是第一层输入框且有属性，增强选择器
-            if (isFirstElement && (tag === 'input' || tag === 'textarea')) {
-                const placeholder = current.getAttribute('placeholder');
-                const type = current.getAttribute('type');
-                if (placeholder) {
-                    classSelector += `[placeholder="${CSS.escape(placeholder)}"]`;
-                } else if (type) {
-                    classSelector += `[type="${CSS.escape(type)}"]`;
-                }
-            }
-
-            parts.unshift(`${tag}${classSelector}`);
-        } else {
-            // 没有类名，尝试使用属性选择器（仅限第一层输入框）
-            if (isFirstElement && (tag === 'input' || tag === 'textarea')) {
-                const placeholder = current.getAttribute('placeholder');
-                const type = current.getAttribute('type');
-                if (placeholder) {
-                    parts.unshift(`${tag}[placeholder="${CSS.escape(placeholder)}"]`);
-                    current = current.parentElement;
-                    depth++;
-                    isFirstElement = false;
-                    continue;
-                } else if (type) {
-                    parts.unshift(`${tag}[type="${CSS.escape(type)}"]`);
-                    current = current.parentElement;
-                    depth++;
-                    isFirstElement = false;
-                    continue;
-                }
-            }
-
-            // 使用标签和索引
-            const siblings: HTMLCollection | undefined = current.parentElement?.children;
-            if (siblings) {
-                let index = 1;
-                for (let i = 0; i < siblings.length; i++) {
-                    const sibling: Element = siblings[i];
-                    if (sibling === current) break;
-                    if (sibling.tagName === current.tagName) index++;
-                }
-                parts.unshift(`${tag}:nth-of-type(${index})`);
-            } else {
-                parts.unshift(tag);
-            }
-        }
-
-        current = current.parentElement;
-        depth++;
-        isFirstElement = false;
-    }
-
-    return parts.join(' > ');
-}
 
 /**
  * 构建人类可读描述
  */
-function buildHumanDescription(element: HTMLElement): string {
+export function buildHumanDescription(element: HTMLElement): string {
     const tag = element.tagName.toLowerCase();
     const ariaLabel = element.getAttribute('aria-label');
     const title = element.getAttribute('title');
@@ -306,16 +160,6 @@ function buildHumanDescription(element: HTMLElement): string {
     if (ariaLabel) return ariaLabel;
     if (title) return title;
     if (text) return `${tag}: "${text}"`;
-
-    // 检查是否是图标
-    const svg = element.querySelector('svg');
-    if (svg) {
-        const svgClass = svg.className.baseVal || '';
-        const iconMatch = svgClass.match(/lucide-(\w+)/);
-        if (iconMatch) {
-            return `${iconMatch[1]} 图标`;
-        }
-    }
 
     return `${tag} 元素`;
 }
