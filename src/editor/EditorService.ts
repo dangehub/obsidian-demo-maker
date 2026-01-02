@@ -12,6 +12,7 @@ export interface EditorServiceCallbacks {
     onSave: (step: FlowStep) => void;
     onCancel: () => void;
     onPreview: (step: FlowStep) => void;
+    onPickingModeChange?: (active: boolean) => void;
 }
 
 export class EditorService {
@@ -52,7 +53,8 @@ export class EditorService {
         if (this.isPicking) return;
 
         this.isPicking = true;
-        new Notice('拾取模式：请点击界面元素以重新选择 (鼠标悬停有高亮)');
+        this.callbacks?.onPickingModeChange?.(true); // 通知播放器隐藏遮罩
+        new Notice('拾取模式：请点击界面元素以重新选择');
 
         // 创建临时高亮框
         this.highlightEl = document.createElement('div');
@@ -127,6 +129,7 @@ export class EditorService {
             this.highlightEl = null;
         }
         this.isPicking = false;
+        this.callbacks?.onPickingModeChange?.(false); // 通知播放器恢复遮罩
         document.body.removeClass('demo-maker-picking-mode');
     }
 
@@ -145,10 +148,10 @@ export class EditorService {
     }
 
     /**
-     * 检查是否处于编辑状态
+     * 检查元素是否属于编辑面板
      */
-    isEditing(): boolean {
-        return this.panel !== null;
+    contains(element: HTMLElement): boolean {
+        return this.panel ? this.panel.contains(element) : false;
     }
 
     /**
@@ -158,5 +161,12 @@ export class EditorService {
         if (this.panel) {
             this.panel.updateAnnotation(anno);
         }
+    }
+
+    /**
+     * 检查是否处于编辑状态
+     */
+    isEditing(): boolean {
+        return this.panel !== null;
     }
 }

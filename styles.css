@@ -62,20 +62,57 @@
    ============================================================ */
 
 .demo-maker-tooltip {
-	position: absolute;
+	position: fixed;
+	/* 核心改变：使用 fixed 坐标系，与 getBoundingClientRect 对齐 */
 	max-width: 320px;
+	min-width: 120px;
+	/* 防御性宽度，防止异步渲染时塌陷 */
 	padding: 12px 16px;
-	background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-	color: #f1f5f9;
 	border-radius: 12px;
-	box-shadow:
-		0 4px 20px rgba(0, 0, 0, 0.4),
-		0 0 0 1px rgba(255, 255, 255, 0.1);
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
 	font-size: 14px;
 	line-height: 1.6;
-	white-space: pre-wrap;
-	z-index: 10002;
-	pointer-events: none;
+	z-index: 10020;
+	pointer-events: auto;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	display: none;
+	color: #f1f5f9;
+}
+
+/* 文字气泡主题变量 */
+.demo-maker-tooltip.theme-default {
+	background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+	--tooltip-bg: #0f172a;
+}
+
+.demo-maker-tooltip.theme-primary {
+	background: #3b82f6;
+	--tooltip-bg: #3b82f6;
+	color: white;
+}
+
+.demo-maker-tooltip.theme-success {
+	background: #10b981;
+	--tooltip-bg: #10b981;
+	color: white;
+}
+
+.demo-maker-tooltip.theme-warning {
+	background: #f59e0b;
+	--tooltip-bg: #f59e0b;
+	color: white;
+}
+
+.demo-maker-tooltip.theme-danger {
+	background: #ef4444;
+	--tooltip-bg: #ef4444;
+	color: white;
+}
+
+.demo-maker-tooltip.theme-info {
+	background: #0ea5e9;
+	--tooltip-bg: #0ea5e9;
+	color: white;
 }
 
 /* 气泡箭头 */
@@ -92,7 +129,7 @@
 	left: 50%;
 	transform: translateX(-50%);
 	border-width: 8px 8px 0 8px;
-	border-color: #0f172a transparent transparent transparent;
+	border-color: var(--tooltip-bg, #0f172a) transparent transparent transparent;
 }
 
 .demo-maker-tooltip[data-placement="bottom"]::after {
@@ -100,7 +137,7 @@
 	left: 50%;
 	transform: translateX(-50%);
 	border-width: 0 8px 8px 8px;
-	border-color: transparent transparent #1e293b transparent;
+	border-color: transparent transparent var(--tooltip-bg, #0f172a) transparent;
 }
 
 .demo-maker-tooltip[data-placement="left"]::after {
@@ -280,24 +317,38 @@
 .demo-maker-editor-textarea {
 	width: 100%;
 	min-height: 80px;
-	background: rgba(0, 0, 0, 0.2);
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	background-color: var(--background-modifier-form-field);
+	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
-	color: #fff;
+	color: var(--text-normal);
 	padding: 8px;
 	font-size: 13px;
 	resize: vertical;
+	font-family: inherit;
 }
 
 .demo-maker-editor-input,
 .demo-maker-editor-select {
 	width: 100%;
-	background: rgba(0, 0, 0, 0.2);
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	background-color: var(--background-modifier-form-field);
+	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
-	color: #fff;
+	color: var(--text-normal);
 	padding: 8px;
 	font-size: 13px;
+	height: 36px;
+}
+
+.demo-maker-editor-select option {
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.demo-maker-editor-input:focus,
+.demo-maker-editor-textarea:focus,
+.demo-maker-editor-select:focus {
+	border-color: var(--interactive-accent);
+	outline: none;
 }
 
 

@@ -92,7 +92,7 @@ export type AnchorType = 'target' | 'screen';
 export type Placement = 'top' | 'bottom' | 'left' | 'right' | 'center';
 
 /** 标注主题 */
-export type AnnotationTheme = 'default' | 'warning' | 'success';
+export type AnnotationTheme = 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info';
 
 /**
  * 文字标注

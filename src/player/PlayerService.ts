@@ -117,12 +117,14 @@ export class PlayerService {
                     await fm.saveFlow(this.flow);
                     new Notice('步骤已保存');
                 }
+                this.overlay?.setEditingMode(false);
                 this.state = 'playing';
                 // 重新渲染当前步以应用更改
                 this.currentTarget = null;
                 await this.showCurrentStep();
             },
             onCancel: () => {
+                this.overlay?.setEditingMode(false);
                 this.state = 'playing';
                 this.showCurrentStep(); // 恢复原始显示
             },
@@ -135,6 +137,9 @@ export class PlayerService {
                         this.flow?.steps.length || 0
                     );
                 }
+            },
+            onPickingModeChange: (active: boolean) => {
+                this.overlay?.setPickingMode(active);
             }
         });
     }
@@ -423,8 +428,10 @@ export class PlayerService {
 
         const target = evt.target as HTMLElement;
 
-        // 如果点击的是遮罩层内的元素（控制按钮等），不处理
-        if (this.overlay.contains(target)) {
+        // 如果点击的是遮罩层、控制栏、或者是编辑面板内的元素，不进行干扰
+        if (target.closest('.demo-maker-overlay') ||
+            target.closest('.demo-maker-editor-panel') ||
+            target.closest('.demo-maker-control-bar')) {
             return;
         }
 

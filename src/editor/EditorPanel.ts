@@ -25,6 +25,8 @@ export class EditorPanel {
     private locatorInfoEl: HTMLDivElement;
     private hintInput: HTMLTextAreaElement;
     private placementSelect: HTMLSelectElement;
+    private themeSelect: HTMLSelectElement;
+    private textOffsetInputs: { x: HTMLInputElement, y: HTMLInputElement } | null = null;
     private expectedInput?: HTMLInputElement;
     private arrowInputs: { fx: HTMLInputElement, fy: HTMLInputElement, tx: HTMLInputElement, ty: HTMLInputElement } | null = null;
 
@@ -118,6 +120,52 @@ export class EditorPanel {
         placementGroup.appendChild(placementLabel);
         placementGroup.appendChild(this.placementSelect);
 
+        // 主题选择器
+        const themeGroup = document.createElement('div');
+        themeGroup.className = 'demo-maker-editor-field';
+        const themeLabel = document.createElement('label');
+        themeLabel.textContent = '标注主题:';
+
+        this.themeSelect = document.createElement('select');
+        this.themeSelect.className = 'demo-maker-editor-select';
+        ['default', 'primary', 'success', 'warning', 'danger', 'info'].forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t.toUpperCase();
+            this.themeSelect.appendChild(opt);
+        });
+        this.themeSelect.value = this.getStepTheme();
+        this.themeSelect.onchange = () => {
+            this.updateStepTheme(this.themeSelect.value as any);
+            this.callbacks.onPreview(this.currentStep);
+        };
+
+        themeGroup.appendChild(themeLabel);
+        themeGroup.appendChild(this.themeSelect);
+
+        // 偏移量编辑 (仅在非 center 模式下常用，但这里始终保留)
+        const offsetGroup = document.createElement('div');
+        offsetGroup.className = 'demo-maker-editor-field';
+        offsetGroup.innerHTML = '<label>偏移量 (X, Y):</label>';
+        const offsetRow = document.createElement('div');
+        offsetRow.style.display = 'flex';
+        offsetRow.style.gap = '8px';
+
+        const firstAnno = this.getOrCreateFirstTextAnno();
+        const ox = this.createNumberInput(firstAnno.position.offsetX || 0, (val) => {
+            firstAnno.position.offsetX = val;
+            this.callbacks.onPreview(this.currentStep);
+        });
+        const oy = this.createNumberInput(firstAnno.position.offsetY || 0, (val) => {
+            firstAnno.position.offsetY = val;
+            this.callbacks.onPreview(this.currentStep);
+        });
+        this.textOffsetInputs = { x: ox, y: oy };
+
+        offsetRow.appendChild(ox);
+        offsetRow.appendChild(oy);
+        offsetGroup.appendChild(offsetRow);
+
         // 组装内容
         content.appendChild(this.typeInfoEl);
         content.appendChild(locatorGroup);
@@ -125,9 +173,11 @@ export class EditorPanel {
         // 针对特殊类型的额外字段 (如 Select 的期望值)
         this.addTypeSpecificFields(content);
 
-        // 标注列表管理 (目前仅支持 1 个文字，准备支持箭头)
+        // 标注列表管理
         content.appendChild(hintGroup);
         content.appendChild(placementGroup);
+        content.appendChild(themeGroup);
+        content.appendChild(offsetGroup);
 
         // 箭头编辑区域
         this.addArrowEditingUI(content);
@@ -188,6 +238,14 @@ export class EditorPanel {
         return '';
     }
 
+    private getStepTheme(): string {
+        const firstAnno = this.currentStep.annotations?.[0];
+        if (firstAnno && firstAnno.type === 'text') {
+            return firstAnno.style?.theme || 'default';
+        }
+        return 'default';
+    }
+
     private getStepPlacement(): string {
         const step = this.currentStep;
         const firstAnno = step.annotations?.[0];
@@ -197,38 +255,33 @@ export class EditorPanel {
         return 'bottom';
     }
 
-    private updateStepHint(val: string): void {
+    private getOrCreateFirstTextAnno(): TextAnnotation {
         if (!this.currentStep.annotations) this.currentStep.annotations = [];
-        if (this.currentStep.annotations.length === 0) {
-            this.currentStep.annotations.push({
-                id: 'anno-0',
+        let firstAnno = this.currentStep.annotations.find(a => a.type === 'text') as TextAnnotation;
+        if (!firstAnno) {
+            firstAnno = {
+                id: 'anno-' + Date.now(),
                 type: 'text',
-                content: val,
+                content: '',
                 position: { anchor: this.currentStep.type === 'message' ? 'screen' : 'target', placement: 'bottom' }
-            });
-        } else {
-            const firstAnno = this.currentStep.annotations[0];
-            if (firstAnno.type === 'text') {
-                firstAnno.content = val;
-            }
+            };
+            this.currentStep.annotations.push(firstAnno);
         }
+        return firstAnno;
+    }
+
+    private updateStepTheme(theme: any): void {
+        const anno = this.getOrCreateFirstTextAnno();
+        if (!anno.style) anno.style = {};
+        anno.style.theme = theme;
+    }
+
+    private updateStepHint(val: string): void {
+        this.getOrCreateFirstTextAnno().content = val;
     }
 
     private updateStepPlacement(placement: 'top' | 'bottom' | 'left' | 'right' | 'center'): void {
-        if (!this.currentStep.annotations) this.currentStep.annotations = [];
-        if (this.currentStep.annotations.length === 0) {
-            this.currentStep.annotations.push({
-                id: 'anno-0',
-                type: 'text',
-                content: '',
-                position: { anchor: this.currentStep.type === 'message' ? 'screen' : 'target', placement }
-            });
-        } else {
-            const firstAnno = this.currentStep.annotations[0];
-            if (firstAnno.type === 'text') {
-                firstAnno.position.placement = placement;
-            }
-        }
+        this.getOrCreateFirstTextAnno().position.placement = placement;
     }
 
     private addArrowEditingUI(container: HTMLElement): void {
