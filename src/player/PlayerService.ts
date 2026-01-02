@@ -258,8 +258,11 @@ export class PlayerService {
         });
 
         if (result.success && result.element) {
+            // 如果元素不在视口内，自动滚动到可见位置
+            await this.scrollElementIntoViewIfNeeded(result.element);
+
             this.currentTarget = result.element;
-            this.overlay.renderStep(
+            await this.overlay.renderStep(
                 step,
                 result.element,
                 this.currentIndex + 1,
@@ -268,7 +271,7 @@ export class PlayerService {
         } else {
             // 定位失败
             console.warn('Demo Maker: 无法定位元素', step.locator);
-            this.overlay.renderStep(
+            await this.overlay.renderStep(
                 step,
                 null,
                 this.currentIndex + 1,
@@ -296,10 +299,13 @@ export class PlayerService {
         });
 
         if (result.success && result.element) {
+            // 如果元素不在视口内，自动滚动到可见位置
+            await this.scrollElementIntoViewIfNeeded(result.element);
+
             this.currentTarget = result.element;
 
             // 渲染步骤（高亮 select）
-            this.overlay.renderStep(
+            await this.overlay.renderStep(
                 step,
                 result.element,
                 this.currentIndex + 1,
@@ -332,7 +338,7 @@ export class PlayerService {
         } else {
             // 定位失败
             console.warn('Demo Maker: 无法定位 select 元素', step.locator);
-            this.overlay.renderStep(
+            await this.overlay.renderStep(
                 step,
                 null,
                 this.currentIndex + 1,
@@ -377,9 +383,14 @@ export class PlayerService {
                 intervalMs: 200,
             });
             target = result.element;
+
+            // 如果元素不在视口内，自动滚动到可见位置
+            if (target) {
+                await this.scrollElementIntoViewIfNeeded(target);
+            }
         }
 
-        this.overlay.renderStep(
+        await this.overlay.renderStep(
             step,
             target,
             this.currentIndex + 1,
@@ -485,6 +496,31 @@ export class PlayerService {
         const target = evt.target as HTMLElement;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
             return;
+        }
+    }
+
+    /**
+     * 如果元素不在视口内，滚动到可见位置
+     */
+    private async scrollElementIntoViewIfNeeded(element: HTMLElement): Promise<void> {
+        const rect = element.getBoundingClientRect();
+        const isInViewport = (
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= window.innerHeight &&
+            rect.right <= window.innerWidth
+        );
+
+        if (!isInViewport) {
+            // 滚动到元素中心位置
+            element.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'center'
+            });
+
+            // 等待滚动动画完成（约 300-500ms）
+            await new Promise(resolve => setTimeout(resolve, 400));
         }
     }
 
