@@ -201,9 +201,20 @@ export class Overlay {
         const rect = target.getBoundingClientRect();
         const padding = 4;
 
+        console.log('[Demo Maker] highlightElement rect:', {
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+            windowScrollY: window.scrollY,
+            windowScrollX: window.scrollX
+        });
+
+        // 使用视口坐标直接定位（overlay 是 position:fixed）
+        // 不使用 window.scrollY/X 因为 Obsidian 使用内部容器滚动
         this.highlight.style.display = 'block';
-        this.highlight.style.top = `${rect.top + window.scrollY - padding}px`;
-        this.highlight.style.left = `${rect.left + window.scrollX - padding}px`;
+        this.highlight.style.top = `${rect.top - padding}px`;
+        this.highlight.style.left = `${rect.left - padding}px`;
         this.highlight.style.width = `${rect.width + padding * 2}px`;
         this.highlight.style.height = `${rect.height + padding * 2}px`;
 

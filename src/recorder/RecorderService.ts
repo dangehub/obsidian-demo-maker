@@ -461,7 +461,15 @@ export class RecorderService {
         let step: FlowStep;
         const tagName = target.tagName.toLowerCase();
         const type = target.getAttribute('type');
-        const isInput = tagName === 'input' || tagName === 'textarea' || target.contentEditable === 'true';
+
+        // 检测是否是输入框（但排除 checkbox/radio，它们应该作为 click 处理）
+        const isCheckboxOrRadio = tagName === 'input' && (type === 'checkbox' || type === 'radio');
+        const isInput = (tagName === 'input' || tagName === 'textarea' || target.contentEditable === 'true') && !isCheckboxOrRadio;
+
+        // 如果是 checkbox 或 radio 内部的点击，跳过（已经在点击 label 时录制过了）
+        if (isCheckboxOrRadio && target.closest('.checkbox-container')) {
+            return;
+        }
 
         if (isInput) {
             // 如果是输入框，录制为 Input 步骤

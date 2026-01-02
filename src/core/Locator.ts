@@ -151,49 +151,120 @@ function locateBySettingId(settingId: string): HTMLElement | null {
 /**
  * 通过设置项名称和控件类型定位
  * 用于定位设置页面中的 select/toggle/button 等控件
+ * 支持滚动查找未加载到 DOM 的元素
  */
 function locateBySettingName(
     settingName: string,
     controlType?: 'select' | 'toggle' | 'button' | 'input' | 'slider'
 ): HTMLElement | null {
-    // 获取搜索范围（优先在 Modal 内搜索）
-    const searchRoot = document.querySelector('.modal-container') || document;
+    console.log('[Demo Maker] locateBySettingName 开始查找:', settingName, 'controlType:', controlType);
 
-    // 查找所有设置项
-    const settingItems = searchRoot.querySelectorAll('.setting-item');
-
-    for (const item of Array.from(settingItems)) {
-        const nameEl = item.querySelector('.setting-item-name');
-        const name = nameEl?.textContent?.trim();
-
-        if (name === settingName) {
-            // 找到匹配的设置项，现在在其中查找控件
-            const controlEl = item.querySelector('.setting-item-control');
-            if (!controlEl) continue;
-
-            if (controlType === 'select') {
-                const select = controlEl.querySelector('select');
-                if (select) return select as HTMLElement;
-            } else if (controlType === 'toggle') {
-                const toggle = controlEl.querySelector('.checkbox-container');
-                if (toggle) return toggle as HTMLElement;
-            } else if (controlType === 'button') {
-                const button = controlEl.querySelector('button');
-                if (button) return button as HTMLElement;
-            } else if (controlType === 'input') {
-                const input = controlEl.querySelector('input:not([type="range"])');
-                if (input) return input as HTMLElement;
-            } else if (controlType === 'slider') {
-                const slider = controlEl.querySelector('input[type="range"]');
-                if (slider) return slider as HTMLElement;
-            } else {
-                // 如果没有指定类型，返回第一个交互元素
-                const anyControl = controlEl.querySelector('select, button, input, .checkbox-container');
-                if (anyControl) return anyControl as HTMLElement;
-            }
+    // 获取搜索范围 - 优先在设置窗口内搜索
+    // Obsidian 设置页面可能是 .modal-container 或 直接在 .workspace 中
+    let searchRoot: Element | Document = document;
+    const modalSettings = document.querySelector('.modal-container .mod-settings');
+    if (modalSettings) {
+        searchRoot = modalSettings;
+        console.log('[Demo Maker] 在 modal 设置窗口中搜索');
+    } else {
+        const workspaceSettings = document.querySelector('.workspace-split .vertical-tab-content');
+        if (workspaceSettings) {
+            // 使用整个文档但优先处理设置区域
+            console.log('[Demo Maker] 在 workspace 设置区域中搜索');
         }
     }
 
+    // 获取可滚动的设置内容容器
+    const settingsContainer = (searchRoot === document
+        ? document.querySelector('.vertical-tab-content')
+        : searchRoot.querySelector('.vertical-tab-content')) as HTMLElement | null;
+
+    console.log('[Demo Maker] settingsContainer:', settingsContainer ? '找到' : '未找到');
+
+    // 直接查找函数
+    const findInDOM = (): HTMLElement | null => {
+        // 在整个文档中搜索所有 setting-item
+        const settingItems = document.querySelectorAll('.setting-item');
+        console.log('[Demo Maker] 找到 setting-item 数量:', settingItems.length);
+
+        for (const item of Array.from(settingItems)) {
+            const nameEl = item.querySelector('.setting-item-name');
+            const name = nameEl?.textContent?.trim();
+
+            if (name === settingName) {
+                console.log('[Demo Maker] 找到匹配的设置项:', name);
+                const controlEl = item.querySelector('.setting-item-control');
+                if (!controlEl) {
+                    console.log('[Demo Maker] 设置项没有 control 元素');
+                    continue;
+                }
+
+                let targetEl: HTMLElement | null = null;
+                if (controlType === 'select') {
+                    targetEl = controlEl.querySelector('select') as HTMLElement;
+                } else if (controlType === 'toggle') {
+                    targetEl = controlEl.querySelector('.checkbox-container') as HTMLElement;
+                } else if (controlType === 'button') {
+                    targetEl = controlEl.querySelector('button') as HTMLElement;
+                } else if (controlType === 'input') {
+                    targetEl = controlEl.querySelector('input:not([type="range"])') as HTMLElement;
+                } else if (controlType === 'slider') {
+                    targetEl = controlEl.querySelector('input[type="range"]') as HTMLElement;
+                } else {
+                    targetEl = controlEl.querySelector('select, button, input, .checkbox-container') as HTMLElement;
+                }
+
+                if (targetEl) {
+                    console.log('[Demo Maker] 找到目标控件:', targetEl.tagName, targetEl.className);
+                    return targetEl;
+                } else {
+                    console.log('[Demo Maker] 未找到指定类型的控件');
+                }
+            }
+        }
+        return null;
+    };
+
+    // 先尝试直接查找
+    let result = findInDOM();
+    if (result) {
+        console.log('[Demo Maker] 直接查找成功');
+        // 滚动元素到可见位置
+        result.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'center' });
+        return result;
+    }
+
+    console.log('[Demo Maker] 直接查找失败，尝试滚动查找');
+
+    // 如果没找到，尝试滚动设置容器来加载更多元素
+    if (settingsContainer) {
+        const originalScroll = settingsContainer.scrollTop;
+        const scrollHeight = settingsContainer.scrollHeight;
+        const clientHeight = settingsContainer.clientHeight;
+
+        console.log('[Demo Maker] 滚动查找: scrollHeight=', scrollHeight, 'clientHeight=', clientHeight);
+
+        // 分段滚动查找
+        for (let scrollPos = 0; scrollPos <= scrollHeight; scrollPos += clientHeight * 0.8) {
+            settingsContainer.scrollTop = scrollPos;
+            console.log('[Demo Maker] 滚动到:', scrollPos);
+
+            // 同步查找（DOM 应该会立即更新）
+            result = findInDOM();
+            if (result) {
+                console.log('[Demo Maker] 滚动查找成功，位置:', scrollPos);
+                // 滚动元素到可见位置
+                result.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'center' });
+                return result;
+            }
+        }
+
+        // 恢复原始滚动位置
+        settingsContainer.scrollTop = originalScroll;
+        console.log('[Demo Maker] 滚动查找失败，恢复滚动位置');
+    }
+
+    console.log('[Demo Maker] locateBySettingName 完全失败');
     return null;
 }
 
