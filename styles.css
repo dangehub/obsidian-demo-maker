@@ -1,108 +1,70 @@
-.demo-maker-recording-bar {
-	position: fixed;
-	top: 12px;
-	left: 50%;
-	transform: translateX(-50%);
-	z-index: 9999;
-	background: var(--background-secondary, #1e1e1e);
-	color: var(--text-normal, #f0f0f0);
-	padding: 8px 12px;
-	border: 1px solid var(--background-modifier-border, #3a3a3a);
-	border-radius: 12px;
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-}
+/**
+ * Demo Maker - 样式表
+ */
 
-.demo-maker-recording-actions {
-	display: flex;
-	gap: 8px;
-}
-
-.demo-maker-recording-actions button {
-	border: 1px solid var(--background-modifier-border, #444);
-	background: var(--interactive-accent, #7c5dfa);
-	color: #fff;
-	border-radius: 8px;
-	padding: 4px 8px;
-	cursor: pointer;
-}
-
-.demo-maker-recording-status {
-	font-size: 13px;
-}
+/* ============================================================
+   遮罩层容器
+   ============================================================ */
 
 .demo-maker-overlay {
 	position: fixed;
 	inset: 0;
-	z-index: 9998;
+	z-index: 9999;
 	pointer-events: none;
 }
 
-.demo-maker-overlay-shade {
+/* ============================================================
+   背景遮罩（变暗效果）
+   ============================================================ */
+
+.demo-maker-backdrop {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.45);
-	pointer-events: none;
-}
-
-.demo-maker-overlay-highlight {
-	position: absolute;
-	border: 2px solid #ffd166;
-	box-shadow:
-		0 0 0 4px rgba(255, 209, 102, 0.35),
-		0 0 0 9999px rgba(0, 0, 0, 0.45);
-	border-radius: 10px;
-	pointer-events: none;
-	background: transparent;
-}
-
-.demo-maker-overlay-highlight.no-dim {
-	box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.35);
-}
-
-.demo-maker-edit-toolbar {
-	position: fixed;
-	top: 12px;
-	left: 50%;
-	transform: translateX(-50%);
-	z-index: 10001;
-	display: flex;
-	gap: 8px;
-	background: rgba(15, 23, 42, 0.9);
-	color: #e2e8f0;
-	padding: 8px 12px;
-	border-radius: 12px;
-	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
-	align-items: center;
+	background: rgba(0, 0, 0, 0.6);
 	pointer-events: auto;
 }
 
-.demo-maker-edit-toolbar button {
-	border: 1px solid var(--background-modifier-border, #444);
-	background: var(--interactive-accent, #7c5dfa);
-	color: #fff;
-	border-radius: 8px;
-	padding: 4px 8px;
-	cursor: pointer;
-}
+/* ============================================================
+   高亮框（聚光灯效果）
+   ============================================================ */
 
-.demo-maker-overlay-hint {
+.demo-maker-highlight {
 	position: absolute;
-	max-width: 280px;
-	background: #0f172a;
-	color: #e2e8f0;
-	padding: 8px 10px;
-	border-radius: 10px;
-	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-	font-size: 13px;
-	line-height: 1.4;
+	border: 3px solid #ffd166;
+	border-radius: 8px;
+	box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.3);
 	pointer-events: none;
-	transition: opacity 0.15s ease;
+	transition:
+		top 0.3s ease,
+		left 0.3s ease,
+		width 0.3s ease,
+		height 0.3s ease;
+	z-index: 10001;
 }
 
-.demo-maker-overlay-hint::after {
+/* ============================================================
+   提示气泡
+   ============================================================ */
+
+.demo-maker-tooltip {
+	position: absolute;
+	max-width: 320px;
+	padding: 12px 16px;
+	background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+	color: #f1f5f9;
+	border-radius: 12px;
+	box-shadow:
+		0 4px 20px rgba(0, 0, 0, 0.4),
+		0 0 0 1px rgba(255, 255, 255, 0.1);
+	font-size: 14px;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	z-index: 10002;
+	pointer-events: none;
+}
+
+/* 气泡箭头 */
+.demo-maker-tooltip::after {
 	content: "";
 	position: absolute;
 	width: 0;
@@ -110,7 +72,7 @@
 	border-style: solid;
 }
 
-.demo-maker-overlay-hint[data-position="top"]::after {
+.demo-maker-tooltip[data-placement="top"]::after {
 	bottom: -8px;
 	left: 50%;
 	transform: translateX(-50%);
@@ -118,15 +80,15 @@
 	border-color: #0f172a transparent transparent transparent;
 }
 
-.demo-maker-overlay-hint[data-position="bottom"]::after {
+.demo-maker-tooltip[data-placement="bottom"]::after {
 	top: -8px;
 	left: 50%;
 	transform: translateX(-50%);
 	border-width: 0 8px 8px 8px;
-	border-color: transparent transparent #0f172a transparent;
+	border-color: transparent transparent #1e293b transparent;
 }
 
-.demo-maker-overlay-hint[data-position="left"]::after {
+.demo-maker-tooltip[data-placement="left"]::after {
 	top: 50%;
 	right: -8px;
 	transform: translateY(-50%);
@@ -134,101 +96,265 @@
 	border-color: transparent transparent transparent #0f172a;
 }
 
-.demo-maker-overlay-hint[data-position="right"]::after {
+.demo-maker-tooltip[data-placement="right"]::after {
 	top: 50%;
 	left: -8px;
 	transform: translateY(-50%);
 	border-width: 8px 8px 8px 0;
-	border-color: transparent #0f172a transparent transparent;
+	border-color: transparent #1e293b transparent transparent;
 }
 
-.demo-maker-overlay-hint[data-arrow="off"]::after {
-	display: none;
-}
+/* ============================================================
+   控制栏
+   ============================================================ */
 
-.demo-maker-annotation-text {
-	position: absolute;
-	min-width: 80px;
-	max-width: 240px;
-	background: #0f172a;
-	color: #e5e7eb;
-	padding: 8px 10px;
-	border-radius: 8px;
-	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
-	font-size: 13px;
-	line-height: 1.4;
-	cursor: move;
-	pointer-events: auto;
-}
-
-.demo-maker-annotation-text[contenteditable="true"] {
-	outline: 1px solid var(--interactive-accent, #7c5dfa);
-}
-
-.demo-maker-annotation-arrow {
-	position: absolute;
-	overflow: visible;
-	pointer-events: none;
-}
-
-.demo-maker-annotation-handle {
-	fill: #7c5dfa;
-	stroke: #fff;
-	stroke-width: 1;
-	cursor: pointer;
-	pointer-events: auto;
-}
-
-.demo-maker-overlay-tooltip {
+.demo-maker-control-bar {
 	position: fixed;
-	top: 20px;
-	right: 20px;
-	background: #111827;
-	color: #e5e7eb;
-	padding: 10px 12px;
-	border-radius: 10px;
-	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-	max-width: 280px;
-	font-size: 13px;
-	line-height: 1.4;
+	top: 16px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 10px 20px;
+	background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+	border-radius: 12px;
+	box-shadow:
+		0 4px 20px rgba(0, 0, 0, 0.4),
+		0 0 0 1px rgba(255, 255, 255, 0.1);
+	z-index: 10003;
 	pointer-events: auto;
 }
 
-.demo-maker-overlay-exit {
-	position: fixed;
-	top: 20px;
-	left: 20px;
-	padding: 6px 10px;
+.demo-maker-step-info {
+	color: #94a3b8;
+	font-size: 14px;
+	font-weight: 500;
+}
+
+/* ============================================================
+   按钮通用样式
+   ============================================================ */
+
+.demo-maker-control-bar button {
+	padding: 8px 16px;
+	border: none;
 	border-radius: 8px;
-	border: 1px solid var(--background-modifier-border, #444);
-	background: rgba(0, 0, 0, 0.65);
-	color: #f8fafc;
+	font-size: 14px;
+	font-weight: 500;
 	cursor: pointer;
-	pointer-events: auto;
+	transition: all 0.2s ease;
 }
 
-.demo-maker-overlay-edit {
+/* 退出按钮 */
+.demo-maker-exit-btn {
+	background: rgba(239, 68, 68, 0.15);
+	color: #fca5a5;
+	border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+
+.demo-maker-exit-btn:hover {
+	background: rgba(239, 68, 68, 0.25);
+	color: #fecaca;
+}
+
+/* 下一步按钮 */
+.demo-maker-next-btn {
+	background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+	color: #fff;
+	box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+}
+
+.demo-maker-next-btn:hover {
+	background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(99, 102, 241, 0.5);
+}
+
+/* ============================================================
+   动画效果
+   ============================================================ */
+
+@keyframes demo-maker-fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes demo-maker-scale-in {
+	from {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.demo-maker-overlay {
+	animation: demo-maker-fade-in 0.3s ease;
+}
+
+.demo-maker-tooltip {
+	animation: demo-maker-scale-in 0.3s ease;
+}
+
+.demo-maker-control-bar {
+	animation: demo-maker-scale-in 0.3s ease;
+}
+
+/* ============================================================
+   响应式适配
+   ============================================================ */
+
+@media (max-width: 768px) {
+	.demo-maker-tooltip {
+		max-width: 280px;
+		font-size: 13px;
+		padding: 10px 14px;
+	}
+
+	.demo-maker-control-bar {
+		padding: 8px 16px;
+		gap: 12px;
+	}
+
+	.demo-maker-control-bar button {
+		padding: 6px 12px;
+		font-size: 13px;
+	}
+}
+
+/* ============================================================
+   录制面板
+   ============================================================ */
+
+.demo-maker-recorder-panel {
 	position: fixed;
 	top: 60px;
-	left: 20px;
-	padding: 6px 10px;
-	border-radius: 8px;
-	border: 1px solid var(--background-modifier-border, #444);
-	background: var(--interactive-accent, #7c5dfa);
-	color: #fff;
-	cursor: pointer;
-	pointer-events: auto;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 10000;
+	min-width: 280px;
+	background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+	border-radius: 12px;
+	box-shadow:
+		0 4px 20px rgba(0, 0, 0, 0.4),
+		0 0 0 1px rgba(255, 255, 255, 0.1);
+	color: #f1f5f9;
+	font-size: 14px;
 }
 
-.demo-maker-hint-modal-buttons {
+.demo-maker-recorder-panel.paused {
+	opacity: 0.7;
+}
+
+.demo-maker-recorder-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 16px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	cursor: move;
+}
+
+.demo-maker-recorder-indicator {
+	font-size: 12px;
+	animation: demo-maker-pulse 1.5s infinite;
+}
+
+@keyframes demo-maker-pulse {
+
+	0%,
+	100% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 0.4;
+	}
+}
+
+.demo-maker-recorder-panel.paused .demo-maker-recorder-indicator {
+	animation: none;
+	opacity: 0.4;
+}
+
+.demo-maker-recorder-status {
+	font-weight: 500;
+}
+
+.demo-maker-recorder-count {
+	margin-left: auto;
+	color: #94a3b8;
+}
+
+.demo-maker-recorder-actions {
 	display: flex;
 	gap: 8px;
-	margin-top: 12px;
+	padding: 12px 16px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.demo-maker-hint-modal-buttons button {
-	border: 1px solid var(--background-modifier-border, #444);
-	padding: 6px 10px;
+.demo-maker-recorder-actions button {
+	flex: 1;
+	padding: 8px 12px;
+	border: 1px solid rgba(255, 255, 255, 0.2);
 	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.05);
+	color: #e2e8f0;
+	font-size: 13px;
 	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.demo-maker-recorder-actions button:hover {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: rgba(255, 255, 255, 0.3);
+}
+
+.demo-maker-recorder-footer {
+	display: flex;
+	gap: 8px;
+	padding: 12px 16px;
+}
+
+.demo-maker-recorder-finish {
+	flex: 1;
+	padding: 10px 16px;
+	border: none;
+	border-radius: 8px;
+	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+	color: #fff;
+	font-size: 14px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.demo-maker-recorder-finish:hover {
+	background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+	transform: translateY(-1px);
+}
+
+.demo-maker-recorder-cancel {
+	padding: 10px 16px;
+	border: 1px solid rgba(239, 68, 68, 0.3);
+	border-radius: 8px;
+	background: rgba(239, 68, 68, 0.1);
+	color: #fca5a5;
+	font-size: 14px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.demo-maker-recorder-cancel:hover {
+	background: rgba(239, 68, 68, 0.2);
+	border-color: rgba(239, 68, 68, 0.5);
 }

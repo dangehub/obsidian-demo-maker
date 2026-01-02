@@ -1,0 +1,60 @@
+{
+    "version": "1.0",
+    "id": "demo",
+    "name": "Demo Maker 功能演示",
+    "description": "这是一个示例流程，用于演示 Demo Maker 的基本功能",
+    "author": "Demo Maker",
+    "createdAt": "2026-01-02T00:00:00Z",
+    "updatedAt": "2026-01-02T00:00:00Z",
+    "steps": [
+        {
+            "id": "step-1",
+            "type": "message",
+            "annotations": [
+                {
+                    "id": "anno-1",
+                    "type": "text",
+                    "content": "👋 欢迎使用 Demo Maker！\n\n这是一个示例引导流程，让我们开始吧。",
+                    "position": {
+                        "anchor": "screen",
+                        "placement": "center"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "step-2",
+            "type": "click",
+            "locator": {
+                "cssSelector": ".clickable-icon:has(.lucide-settings)",
+                "humanDescription": "左下角的齿轮设置图标"
+            },
+            "annotations": [
+                {
+                    "id": "anno-2",
+                    "type": "text",
+                    "content": "点击这个设置图标",
+                    "position": {
+                        "anchor": "target",
+                        "placement": "right"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "step-3",
+            "type": "message",
+            "annotations": [
+                {
+                    "id": "anno-3",
+                    "type": "text",
+                    "content": "🎉 太棒了！你已经完成了这个简单的示例。\n\n现在你可以开始创建自己的引导流程了。",
+                    "position": {
+                        "anchor": "screen",
+                        "placement": "center"
+                    }
+                }
+            ]
+        }
+    ]
+}

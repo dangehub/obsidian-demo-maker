@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-demo-maker",
 	"name": "Demo Maker",
-	"version": "0.1.8",
+	"version": "0.1.15",
 	"minAppVersion": "0.15.0",
 	"description": "录制并回放 Obsidian 引导流程的最小原型。",
 	"author": "曲淡歌",
