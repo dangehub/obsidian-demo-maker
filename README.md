@@ -1,94 +1,109 @@
-# Obsidian Sample Plugin
+# Demo Maker
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+**English** | [简体中文](./docs/README_CN.md)
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+![GitHub Downloads](https://img.shields.io/github/downloads/dangehub/obsidian-demo-maker/total)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/dangehub/obsidian-demo-maker)
+![Last commit](https://img.shields.io/github/last-commit/dangehub/obsidian-demo-maker)
+![Issues](https://img.shields.io/github/issues/dangehub/obsidian-demo-maker)
+![Stars](https://img.shields.io/github/stars/dangehub/obsidian-demo-maker?style=social)
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+> 📹 **Record and replay interactive tutorials for Obsidian**
+>
+> Create interactive demonstrations for your plugins, workflows, or Obsidian tutorials.
 
-## First time developing plugins?
+## ✨ Features
 
-Quick starting guide for new plugin devs:
+### 🎬 Recording Mode
+- **One-Click Recording**: Start recording via command palette, automatically capture your actions
+- **Smart Detection**: Automatically identify different action types - clicks, inputs, dropdown selections
+- **Multi-Strategy Locating**: Prioritize semantic attributes (aria-label, data-type, settingName) for element location, with CSS selectors as fallback
+- **Settings Page Support**: Intelligently recognize controls in settings pages (toggles, dropdowns, buttons, etc.)
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+### ▶️ Playback Mode
+- **Spotlight Effect**: Highlight target elements with dimmed background to guide user attention
+- **Auto Scroll**: Automatically scroll to target elements when they are outside the viewport
+- **Interaction Validation**: Automatically detect whether users have completed expected actions
+- **Step Navigation**: Display current step progress with manual navigation support
 
-## Releasing new releases
+### ✏️ Editing Mode
+- **Annotation Editing**: Add text annotations and arrow indicators to any step
+- **Live Preview**: See changes instantly while editing
+- **Drag & Drop**: Visually adjust annotation positions and arrow endpoints
+- **Markdown Support**: Annotation content supports Markdown formatting
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+### 📝 Step Types
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+| Type | Description | Trigger |
+|------|-------------|---------|
+| `click` | Click an element | Auto-detect on click |
+| `input` | Input/edit action | Manual "Next" button |
+| `select` | Dropdown selection | Auto-detect on selection |
+| `wait` | Wait for a duration | Auto-advance after countdown |
+| `message` | Display-only message | Manual "Continue" button |
 
-## Adding your plugin to the community plugin list
+## 📦 Installation
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+### Manual Installation
+1. Download the latest `main.js`, `styles.css`, and `manifest.json`
+2. Create directory in your vault: `.obsidian/plugins/obsidian-demo-maker/`
+3. Copy downloaded files to the directory
+4. Restart Obsidian, enable "Demo Maker" in Settings → Community Plugins
 
-## How to use
+### Install via BRAT/Better Plugins Manager
+1. Search and install BRAT/Better Plugins Manager from Obsidian's official plugin marketplace
+2. Add this plugin: `https://github.com/dangehub/obsidian-demo-maker`
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+## 🚀 Quick Start
 
-## Manually installing the plugin
+### Recording a Flow
+1. Open command palette (`Ctrl/Cmd + P`) and execute **"Demo Maker: Start Recording"**
+2. Operate Obsidian normally - your clicks, inputs, and selections will be automatically recorded
+3. Click the **Stop** button on the recording panel
+4. Enter a flow name and save
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+### Playing a Flow
+1. Execute **"Demo Maker: Play"** via command palette
+2. Select the flow you want to play from the list
+3. Follow the highlighted prompts to complete each step
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint ./src/`
+### Editing a Flow
+1. Execute **"Demo Maker: Edit"** via command palette
+2. Select the flow to edit
+3. Click **✏️ Edit** to enter editing mode
+4. Use the editing panel to add text annotations or arrows
+5. Drag to adjust annotation positions
 
-## Funding URL
+## 📁 Data Storage
 
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+Flow files are stored in JSON format at:
+```
+.obsidian/plugins/obsidian-demo-maker/flows/
 ```
 
-If you have multiple URLs, you can also do:
+Each flow file contains complete step definitions and annotation information, which can be manually edited or backed up.
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
+## 🔧 Development
+
+```bash
+# Install dependencies
+npm install
+
+# Development mode (watch for changes)
+npm run dev
+
+# Build for production
+npm run build
 ```
 
-## API Documentation
+## 🤝 Contributing
 
-See https://github.com/obsidianmd/obsidian-api
+Issues and Pull Requests are welcome!
+
+## 📄 License
+
+MIT License
+
+## Author
+
+**dangehub**

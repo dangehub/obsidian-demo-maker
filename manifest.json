@@ -1,9 +1,9 @@
 {
 	"id": "obsidian-demo-maker",
 	"name": "Demo Maker",
-	"version": "0.1.15",
+	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "录制并回放 Obsidian 引导流程的最小原型。",
-	"author": "曲淡歌",
+	"description": "Record and replay interactive tutorials.",
+	"author": "dangehub",
 	"isDesktopOnly": false
 }
